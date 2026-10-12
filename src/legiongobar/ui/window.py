@@ -8,11 +8,14 @@ from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, 
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont, QKeyEvent
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
                                QGridLayout, QPushButton, QStackedWidget, QScrollArea, QSystemTrayIcon,
-                               QMenu, QAbstractButton, QSlider, QComboBox, QLineEdit, QSpinBox)
+                               QMenu, QAbstractButton, QSlider, QComboBox, QLineEdit, QSpinBox, QSizeGrip)
 
 from .reference import Renderer, Toggle, load_reference
 from .profiles import ProfilesPage
 from .tile import Tile
+from .chrome import TitleBar
+from .theme import configure_font, stylesheet, FONT_FAMILY
+from ..i18n import I18n
 from ..native.system import Gamepad, foreground, telemetry
 
 
@@ -35,12 +38,18 @@ class Job(QRunnable):
 
 
 class Window(QMainWindow):
-    def __init__(self, backend, store, no_tray=False):
+    def __init__(self, backend, store, no_tray=False, windowed=False, i18n=None):
         super().__init__()
+        configure_font(QApplication.instance())
         self.backend, self.store = backend, store
+        self.i18n = i18n or I18n(store.get("Language", "auto"), self)
+        self.windowed = windowed
+        if not windowed:
+            self.setWindowFlag(Qt.FramelessWindowHint)
+        self.i18n.changed.connect(self.retranslate)
         self.reference = load_reference()
         self.snapshot = {"capabilities": {}, "values": {}, "demo": backend.demo}
-        self.renderer = Renderer(self.reference, self.apply_setting, self.action)
+        self.renderer = Renderer(self.reference, self.apply_setting, self.action, self.i18n)
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
         self.jobs = set()
@@ -49,25 +58,27 @@ class Window(QMainWindow):
         self.exit_requested = False
         self.setWindowTitle("LegionGoBar")
         self.resize(600, 670)
-        self.setMinimumSize(460, 420)
-        self.setStyleSheet(files("legiongobar").joinpath("assets/theme.qss").read_text(encoding="utf-8"))
+        self.setMinimumSize(560, 480)
+        self.setStyleSheet(stylesheet())
         root = QWidget()
         self.setCentralWidget(root)
         layout = QVBoxLayout(root)
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(8)
+        if not windowed:
+            layout.addWidget(TitleBar(self, self.i18n))
         nav = QHBoxLayout()
         nav.setSpacing(2)
         left = QLabel("LT")
         left.setProperty("role", "caption")
         nav.addWidget(left)
         self.nav = []
-        # Device tabs remain inspectable on a developer PC; hardware controls are gated.
+        # 开发电脑也可查看设备分页，控件可用性由实际设备能力决定。
         self.tab_ids = [t["id"] for t in self.reference["tabs"] if t["id"] != "GPD"]
         for tab in self.reference["tabs"]:
             if tab["id"] not in self.tab_ids:
                 continue
-            button = QPushButton(tab["label"])
+            button = self.i18n.bind(QPushButton(), tab["label"])
             button.setProperty("role", "nav")
             button.setCheckable(True)
             button.clicked.connect(lambda checked=False, key=tab["id"]: self.select(key))
@@ -81,14 +92,18 @@ class Window(QMainWindow):
         self.page_widgets = {}
         layout.addWidget(self.pages, 1)
         footer = QHBoxLayout()
-        self.metrics = QLabel("CPU --  ·  RAM --  ·  Battery --")
+        self.metrics = self.i18n.bind(QLabel(), "CPU --  ·  RAM --  ·  Battery --")
         self.metrics.setProperty("role", "caption")
         footer.addWidget(self.metrics, 1)
-        self.device = QLabel("Detecting device…")
+        self.device = self.i18n.bind(QLabel(), "Detecting device…")
         self.device.setProperty("role", "caption")
+        self.device.setWordWrap(True)
+        self.metrics.setWordWrap(True)
         footer.addWidget(self.device)
+        if not windowed:
+            footer.addWidget(QSizeGrip(self))
         layout.addLayout(footer)
-        self.status = QLabel("Preview · No hardware writes" if backend.demo else "Initializing native adapters…")
+        self.status = self.i18n.bind(QLabel(), "Preview mode" if backend.demo else "Initializing native adapters…")
         self.status.setWordWrap(True)
         self.status.setProperty("role", "caption")
         layout.addWidget(self.status)
@@ -108,6 +123,7 @@ class Window(QMainWindow):
         if not no_tray and QSystemTrayIcon.isSystemTrayAvailable():
             self.setup_tray()
         QApplication.instance().installEventFilter(self)
+        self.retranslate()
 
     def submit(self, function, done=None):
         job = Job(function)
@@ -124,18 +140,18 @@ class Window(QMainWindow):
     def failed(self, job, error):
         self.jobs.discard(job)
         self.busy.clear()
-        self.status.setText(f"Failed: {error}")
+        self.i18n.bind(self.status, "Failed: {error}", error=error)
         self.snapshot = self.backend.snapshot()
         self.renderer.update(self.snapshot)
         self.refresh_quick()
 
     def discovered(self, snapshot):
         self.snapshot = snapshot
-        self.device.setText(snapshot["values"].get("DeviceDisplayName", "Unknown device"))
+        self.i18n.bind(self.device, snapshot["values"].get("DeviceDisplayName", "Unknown device"))
         self.renderer.update(snapshot)
         self.refresh_quick()
         supported = sum(bool(v) for v in snapshot["capabilities"].values())
-        self.status.setText("Preview · No hardware writes" if self.backend.demo else f"Native adapters ready · {supported} controls available")
+        self.i18n.bind(self.status, "Preview mode" if self.backend.demo else "Ready · {count} controls available", count=supported)
         self.enable_actions()
 
     def enable_actions(self):
@@ -148,16 +164,18 @@ class Window(QMainWindow):
             if key == "Quick":
                 widget = self.quick_page()
             elif key == "Game":
-                widget = ProfilesPage(self.store, lambda: self.snapshot)
+                widget = ProfilesPage(self.store, lambda: self.snapshot, self.i18n)
                 widget.apply_profile.connect(self.apply_profile)
             else:
-                widget = self.renderer.render(self.reference["pages"][key])
-                widget.show()
+                widget = self.renderer.render(self.reference["pages"][key], parent=self.pages)
                 self.renderer.update(self.snapshot)
                 self.enable_actions()
+            if key == "System":
+                self.add_language_settings(widget)
             self.page_widgets[key] = widget
             self.pages.addWidget(widget)
         self.pages.setCurrentWidget(self.page_widgets[key])
+        self.page_widgets[key].show()
         for index, button in enumerate(self.nav):
             button.setChecked(self.tab_ids[index] == key)
         self.current_tab = key
@@ -168,10 +186,10 @@ class Window(QMainWindow):
         body = QWidget()
         layout = QVBoxLayout(body)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.profile_label = QLabel("Global Settings")
+        self.profile_label = self.i18n.bind(QLabel(), "Global Settings")
         self.profile_label.setProperty("role", "value")
         layout.addWidget(self.profile_label)
-        layout.addWidget(QLabel("Quick Settings"))
+        layout.addWidget(self.i18n.bind(QLabel(), "Quick Settings"))
         grid = QGridLayout()
         grid.setSpacing(10)
         self.tiles = []
@@ -193,7 +211,7 @@ class Window(QMainWindow):
             grid.addWidget(button, index // 3, index % 3)
             self.tiles.append((button, definition))
         layout.addLayout(grid)
-        brightness = QLabel("Brightness")
+        brightness = self.i18n.bind(QLabel(), "Brightness")
         brightness.setProperty("role", "title")
         layout.addWidget(brightness)
         self.brightness = QSlider(Qt.Horizontal)
@@ -215,8 +233,8 @@ class Window(QMainWindow):
             button.setEnabled(enabled and key not in self.busy)
             value = values.get(key)
             text = labels[options.index(value)] if value in options else "--"
-            button.set_display(label, text)
-            button.setToolTip("" if enabled else "Device unavailable or pending migration")
+            button.set_display(self.i18n.text(label), self.i18n.text(text))
+            self.i18n.bind(button, "" if enabled else "Unavailable on this device", "setToolTip")
         self.brightness.setEnabled(bool(caps.get("PanelBrightness")))
         self.brightness.setValue(values.get("PanelBrightness", 0))
 
@@ -230,7 +248,7 @@ class Window(QMainWindow):
         if key in self.busy:
             return
         self.busy.add(key)
-        self.status.setText(f"Applying {key}…")
+        self.i18n.bind(self.status, "Applying {key}…", key=key)
         self.refresh_quick()
 
         def finish(result):
@@ -239,7 +257,7 @@ class Window(QMainWindow):
             self.snapshot = snapshot
             self.renderer.update(snapshot)
             self.refresh_quick()
-            self.status.setText(f"{key}: {applied.value} · {applied.message}")
+            self.i18n.bind(self.status, "{key}: {value} · {message}", key=key, value=applied.value, message=applied.message)
 
         def operation():
             result = self.backend.apply(key, value)
@@ -263,7 +281,7 @@ class Window(QMainWindow):
             self.snapshot = snapshot
             self.renderer.update(snapshot)
             self.refresh_quick()
-            self.status.setText(f"Profile: {len(successes)} applied, {len(failures)} failed" + (f" · {failures[0]}" if failures else ""))
+            self.i18n.bind(self.status, "Profile: {success} applied, {failed} failed{detail}", success=len(successes), failed=len(failures), detail=f" · {failures[0]}" if failures else "")
 
         self.submit(operation, finish)
 
@@ -271,12 +289,12 @@ class Window(QMainWindow):
         if name == "LosslessScalingSaveSettingsButton":
             self.apply_setting("LosslessScalingSaveAndRestart", True)
         else:
-            self.status.setText(f"{name}: pending migration")
+            self.i18n.bind(self.status, "{name}: unavailable", name=name)
 
     def tick(self):
         data = telemetry()
         battery = f"{data['BatteryLevel']}%" if data["BatteryLevel"] is not None else "--"
-        self.metrics.setText(f"CPU {data['CPUUsage']}%  ·  RAM {data['MemoryUsage']}%  ·  Battery {battery}")
+        self.i18n.bind(self.metrics, "CPU {cpu}%  ·  RAM {ram}%  ·  Battery {battery}", cpu=data["CPUUsage"], ram=data["MemoryUsage"], battery=battery)
         if self.store.get("PerGameProfile", False) and not self.backend.demo:
             path = foreground()
             if path:
@@ -285,7 +303,7 @@ class Window(QMainWindow):
                     self.last_profile = key
                     profile = self.store.data["profiles"].get(key)
                     if profile:
-                        self.profile_label.setText(profile.get("name", Path(key).stem))
+                        self.i18n.bind(self.profile_label, "{name}", name=profile.get("name", Path(key).stem))
                         self.apply_profile(profile["settings"])
 
     def poll_gamepad(self):
@@ -356,6 +374,8 @@ class Window(QMainWindow):
                 page.ensureWidgetVisible(target, 24, 36)
 
     def eventFilter(self, obj, event):
+        if isinstance(obj, QWidget) and obj.window() != self:
+            return False
         from .fan import FanCurve
         if isinstance(obj, FanCurve):
             return False
@@ -375,7 +395,7 @@ class Window(QMainWindow):
         image.fill(QColor("#25282C"))
         painter = QPainter(image)
         painter.setPen(QColor("#58C8ED"))
-        painter.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        painter.setFont(QFont(FONT_FAMILY, 18, QFont.Bold))
         painter.drawText(image.rect(), Qt.AlignCenter, "L")
         painter.end()
         icon = QIcon(image)
@@ -383,12 +403,40 @@ class Window(QMainWindow):
         self.tray = QSystemTrayIcon(icon, self)
         self.tray.setToolTip("LegionGoBar")
         menu = QMenu()
-        menu.addAction("Open LegionGoBar", self.reveal)
-        menu.addAction("Exit", self.quit)
+        self.i18n.bind(menu.addAction("", self.reveal), "Open LegionGoBar")
+        self.i18n.bind(menu.addAction("", self.quit), "Exit")
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(lambda reason: self.reveal() if reason == QSystemTrayIcon.Trigger else None)
         self.tray.show()
         self.tray_menu = menu
+
+    def add_language_settings(self, page):
+        body = page.widget() if isinstance(page, QScrollArea) else page
+        card = QWidget(body)
+        card.setProperty("role", "card")
+        row = QHBoxLayout(card)
+        row.addWidget(self.i18n.bind(QLabel(), "Language"), 1)
+        self.language_combo = QComboBox(card)
+        for label, value in (("Follow system", "auto"), ("简体中文", "zh_CN"), ("English", "en_US")):
+            self.language_combo.addItem(label, value)
+        self.i18n.combo(self.language_combo, ["Follow system", "简体中文", "English"])
+        self.language_combo.setCurrentIndex(self.language_combo.findData(self.i18n.requested))
+        self.language_combo.activated.connect(self.change_language)
+        row.addWidget(self.language_combo)
+        body.layout().insertWidget(0, card)
+
+    def change_language(self):
+        language = self.language_combo.currentData()
+        self.store.set("Language", language)
+        self.i18n.set_language(language)
+
+    def retranslate(self):
+        self.i18n.retranslate(self)
+        if getattr(self, "tray_menu", None):
+            self.i18n.retranslate(self.tray_menu)
+        if hasattr(self, "language_combo"):
+            self.language_combo.setCurrentIndex(self.language_combo.findData(self.i18n.requested))
+        self.refresh_quick()
 
     def reveal(self):
         self.showNormal()

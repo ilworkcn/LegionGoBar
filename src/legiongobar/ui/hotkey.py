@@ -8,7 +8,7 @@ from PySide6.QtCore import QAbstractNativeEventFilter
 
 
 class Hotkey(QAbstractNativeEventFilter):
-    """Ctrl+Alt+G opens the independent window from any desktop application."""
+    """通过 Ctrl+Alt+G 从桌面应用唤出窗口。"""
 
     def __init__(self, application, reveal):
         super().__init__()

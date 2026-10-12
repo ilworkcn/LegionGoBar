@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import re
 from importlib.resources import files
+from ..i18n import I18n
+from .. import __version__
 
-from PySide6.QtCore import Qt, Signal, QSignalBlocker
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtCore import Qt, Signal, QSignalBlocker, QSize
+from PySide6.QtGui import QColor, QFont, QPainter, QPen, QIcon
 from PySide6.QtWidgets import (QWidget, QLabel, QFrame, QGridLayout, QVBoxLayout, QHBoxLayout,
                                QPushButton, QCheckBox, QComboBox, QSlider, QLineEdit, QSpinBox,
                                QDoubleSpinBox, QScrollArea, QColorDialog, QAbstractButton, QSizePolicy)
@@ -50,8 +52,8 @@ def thickness(text):
 
 
 class Toggle(QAbstractButton):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.setCheckable(True)
         self.setFixedSize(44, 24)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -81,17 +83,15 @@ class ClickFrame(QFrame):
 
 
 class Renderer:
-    """Translate structural XAML elements without loading any UWP runtime.
-
-    The immutable reference retains unhandled templates for the parity audit.
-    Qt controls approximate UWP styling; pixel parity remains an acceptance item.
-    """
-    def __init__(self, reference, apply, action):
+    """将原始 XAML 结构转换为 Qt 控件，保留基准供复刻对照。"""
+    def __init__(self, reference, apply, action, i18n=None):
         self.reference, self.apply, self.action = reference, apply, action
+        self.i18n = i18n or I18n("en_US")
         self.named = {}
         self.bound = []
         self.pending_bindings = []
         self.rendered = set()
+        self.mapping_values = {}
 
     def attrs(self, node):
         attrs = node["attrs"]
@@ -113,32 +113,43 @@ class Renderer:
         self.rendered.add(name)
         self.bound.append((widget, key, node))
         widget.setEnabled(False)
-        widget.setToolTip(f"{name}\n{key or 'Interaction'}: pending port or device capability detection")
+        self.i18n.bind(widget, "Unavailable on this device", "setToolTip")
         if key:
             if key == "LosslessScalingSize":
                 signal.connect(lambda *args: self.apply(key, "PERFORMANCE" if extract() else "BALANCED"))
             elif key.startswith("LegionButton") and isinstance(widget, QComboBox):
-                from ..native.legion_hid import GAMEPAD_ACTIONS
-                def mapped():
-                    index = widget.currentIndex()
-                    if 0 <= index < len(GAMEPAD_ACTIONS):
-                        self.apply(key, json.dumps({"type": 1, "mappings": [GAMEPAD_ACTIONS[index]]}))
-                signal.connect(mapped)
+                signal.connect(lambda *args: self.mapping_changed(key, "gamepad", widget))
             else:
                 signal.connect(lambda *args: self.apply(key, extract()))
 
-    def render(self, node):
+    def render(self, node, parent=None):
         kind, attrs = node["type"], self.attrs(node)
         children = [c for c in node["children"] if "." not in c["type"]]
         if "." in kind or kind in ("DataTemplate", "ItemsPanelTemplate", "ControlTemplate", "Style", "Setter", "RowDefinition", "ColumnDefinition", "Run", "LineBreak"):
             return None
-        if kind == "TextBlock":
-            text = attrs.get("Text", "")
+        if attrs.get("Name") == "AboutContent":
+            widget = QWidget(parent)
+            layout = QVBoxLayout(widget)
+            layout.setContentsMargins(0, 12, 0, 0)
+            for label, value in (("Version", __version__), ("Author", "SUNNYQUAN")):
+                row = QHBoxLayout()
+                row.addWidget(self.i18n.bind(QLabel(), label), 1)
+                row.addWidget(QLabel(value))
+                layout.addLayout(row)
+            layout.addWidget(self.i18n.bind(QLabel(), "Credits"))
+            link = QLabel('<a href="https://github.com/corando98/GoTweaks">corando98/GoTweaks</a>')
+            link.setOpenExternalLinks(True)
+            layout.addWidget(link)
+        elif kind == "TextBlock":
+            text = attrs.get("Text", node.get("text", ""))
             if text.startswith("{"):
                 text = ""
             if not text:
                 text = "".join(c["attrs"].get("Text", "") for c in children if c["type"] == "Run")
-            widget = QLabel(text)
+            if attrs.get("Name") == "AboutVersionText":
+                text = __version__
+            text = {"LtChipotle": "SUNNYQUAN", "Special Thanks": "Credits", "Mute, GameTechPlanet": "corando98/GoTweaks"}.get(text, text)
+            widget = self.i18n.bind(QLabel(parent=parent), text)
             widget.setWordWrap(True)
             widget.setTextFormat(Qt.PlainText)
             style = attrs.get("Style", "")
@@ -149,6 +160,7 @@ class Renderer:
             elif "Value" in style:
                 widget.setProperty("role", "value")
             if attrs.get("FontFamily", "").startswith("Segoe MDL2"):
+                widget.setProperty("glyph", True)
                 widget.setFont(QFont("Segoe MDL2 Assets", 14))
             if "FontSize" in attrs:
                 font = widget.font()
@@ -162,15 +174,15 @@ class Renderer:
             if re.fullmatch(r"#[a-fA-F0-9]{6}|White|Black", foreground):
                 widget.setStyleSheet(f"color: {foreground}; background: transparent;")
         elif kind == "ToggleSwitch":
-            widget = Toggle()
+            widget = Toggle(parent)
             widget.setChecked(attrs.get("IsOn") == "True")
             self.bind(widget, node, widget.toggled, widget.isChecked)
         elif kind in ("CheckBox", "RadioButton"):
-            widget = QCheckBox(attrs.get("Content", ""))
+            widget = self.i18n.bind(QCheckBox(parent=parent), attrs.get("Content", ""))
             widget.setChecked(attrs.get("IsChecked") == "True")
             self.bind(widget, node, widget.toggled, widget.isChecked)
         elif kind == "Slider":
-            widget = QSlider(Qt.Horizontal)
+            widget = QSlider(Qt.Horizontal, parent)
             step = float(attrs.get("StepFrequency", 1))
             scale = 100 if step < 0.1 else 10 if step < 1 else 1
             widget.setProperty("scale", scale)
@@ -180,10 +192,10 @@ class Renderer:
             widget.setValue(round(float(attrs.get("Value", 0)) * scale))
             widget.setMinimumHeight(28)
             self.bind(widget, node, widget.sliderReleased, lambda w=widget, s=scale: w.value() / s if s != 1 else w.value())
-            # Keyboard and gamepad arrows must also commit values.
+            # 键盘与手柄方向键调整也需要提交实际设置值。
             widget.actionTriggered.connect(lambda action, w=widget, n=node: self.slider_action(w, n, action))
         elif kind == "ComboBox":
-            widget = QComboBox()
+            widget = QComboBox(parent)
             for index, child in enumerate(children):
                 if child["type"] in ("ComboBoxItem", "String"):
                     a = child["attrs"]
@@ -197,58 +209,88 @@ class Renderer:
                     except (ValueError, TypeError):
                         pass
                     widget.addItem(a.get("Content", child.get("text") or str(value)), value)
+            mapping = re.fullmatch(r"(LegionButton(?:Y1|Y2|Y3|M1|M2|M3|Desktop|Page))(Type|Mouse|Key)?ComboBox", attrs.get("Name", ""))
+            if mapping:
+                key, part = mapping[1], mapping[2] or "gamepad"
+                from ..native.legion_hid import GAMEPAD_ACTIONS, KEYBOARD_KEYS
+                if part == "Type":
+                    while widget.count() > 3:
+                        widget.removeItem(3)
+                elif part == "Mouse":
+                    for i in range(widget.count()):
+                        widget.setItemData(i, i+1)
+                elif part == "Key":
+                    for i in range(widget.count()):
+                        code = KEYBOARD_KEYS.get(widget.itemText(i))
+                        widget.setItemData(i, code)
+                        if code is None and i != 0:
+                            widget.model().item(i).setEnabled(False)
+                else:
+                    for i in range(min(widget.count(), len(GAMEPAD_ACTIONS))):
+                        widget.setItemData(i, GAMEPAD_ACTIONS[i])
+                if part != "gamepad":
+                    widget.activated.connect(lambda index, k=key, p=part, w=widget: self.mapping_changed(k, p, w))
+            self.i18n.combo(widget, [widget.itemText(i) for i in range(widget.count())])
             widget.setCurrentIndex(int(attrs.get("SelectedIndex", 0)))
-            widget.setMinimumWidth(min(180, int(float(attrs.get("MinWidth", 100)))))
+            widget.setProperty("minimum_combo_width", min(180, int(float(attrs.get("MinWidth", 100)))))
+            widget.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            widget.setMinimumContentsLength(9)
+            self.i18n.combo(widget)
             self.bind(widget, node, widget.activated, widget.currentData)
         elif kind in ("TextBox", "NumberBox"):
             if kind == "TextBox":
-                widget = QLineEdit(attrs.get("Text", ""))
-                widget.setPlaceholderText(attrs.get("PlaceholderText", ""))
+                widget = QLineEdit(attrs.get("Text", ""), parent)
+                self.i18n.bind(widget, attrs.get("PlaceholderText", ""), "setPlaceholderText")
                 self.bind(widget, node, widget.editingFinished, widget.text)
             else:
-                widget = QDoubleSpinBox()
+                widget = QDoubleSpinBox(parent)
                 widget.setRange(float(attrs.get("Minimum", 0)), float(attrs.get("Maximum", 100)))
                 widget.setValue(float(attrs.get("Value", 0)))
                 self.bind(widget, node, widget.editingFinished, widget.value)
         elif kind in ("Button", "ColorPicker"):
             if kind == "ColorPicker":
-                widget = QPushButton("Choose color")
+                widget = self.i18n.bind(QPushButton(parent=parent), "Choose color")
                 key = function_for(attrs.get("Name", ""), self.reference["functions"])
                 self.bound.append((widget, key, node))
                 widget.setEnabled(False)
                 widget.clicked.connect(lambda: self.pick_color(key, widget))
             else:
                 text = attrs.get("Content", "")
-                widget = QPushButton(text if text and not text.startswith("{") else "Select")
+                widget = self.i18n.bind(QPushButton(parent=parent), text if text and not text.startswith("{") else "Select")
                 self.rendered.add(attrs.get("Name", ""))
                 if "Expand" in attrs.get("Name", ""):
-                    widget.setText("⌄")
-                    widget.setFixedWidth(34)
+                    self.i18n.bind(widget, "")
+                    widget.setProperty("role", "disclosure")
+                    widget.setIcon(QIcon(str(files("legiongobar").joinpath("assets/ui/chevron-down.svg"))))
+                    widget.setIconSize(QSize(14, 14))
                     widget.clicked.connect(lambda: self.expand(attrs.get("Name", "")))
                 else:
                     widget.setEnabled(False)
                     widget.clicked.connect(lambda: self.action(attrs.get("Name", "")))
         elif kind == "ScrollViewer":
-            widget = QScrollArea()
+            widget = QScrollArea(parent)
             widget.setWidgetResizable(True)
             widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
             widget.setFrameShape(QFrame.NoFrame)
             if children:
-                content = self.render(children[0])
+                content = self.render(children[0], parent=widget)
                 if content:
                     widget.setWidget(content)
         elif kind == "Expander":
-            widget = QWidget()
+            widget = QWidget(parent)
             layout = QVBoxLayout(widget)
             layout.setContentsMargins(0, 0, 0, 0)
             header_node = next((c for c in node["children"] if c["type"].endswith(".Header")), None)
             title = next((c["attrs"].get("Text", "Details") for c in walk(header_node) if c["type"] == "TextBlock"), "Details") if header_node else "Details"
-            header = QPushButton(title + "  ⌄")
-            content = QWidget()
+            header = self.i18n.bind(QPushButton(parent=widget), title)
+            header.setIcon(QIcon(str(files("legiongobar").joinpath("assets/ui/chevron-down.svg"))))
+            header.setIconSize(QSize(14, 14))
+            header.setProperty("translation_header", title)
+            content = QWidget(widget)
             body = QVBoxLayout(content)
             body.setContentsMargins(0, 0, 0, 0)
             for child in children:
-                rendered = self.render(child)
+                rendered = self.render(child, parent=widget)
                 if rendered is not None:
                     body.addWidget(rendered)
             content.setVisible(attrs.get("IsExpanded") == "True")
@@ -257,20 +299,20 @@ class Renderer:
             layout.addWidget(content)
         elif kind == "Canvas" and attrs.get("Name") == "FanCurveCanvas":
             from .fan import FanCurve
-            widget = FanCurve()
+            widget = FanCurve(parent)
             self.bound.append((widget, "LegionFanCurveData", node))
             widget.edited.connect(lambda value: self.apply("LegionFanCurveData", value))
             widget.setEnabled(False)
         elif kind in ("Image", "Ellipse", "Rectangle", "Path", "Line", "ProgressRing", "ProgressBar"):
             return None
         else:
-            widget = ClickFrame() if kind == "Border" else QWidget()
+            widget = ClickFrame(parent) if kind == "Border" else QWidget(parent)
             if kind == "Border" and "CardStyle" in attrs.get("Style", ""):
                 widget.setProperty("role", "card")
             if kind == "Grid":
                 layout = QGridLayout(widget)
                 for child in children:
-                    rendered = self.render(child)
+                    rendered = self.render(child, parent=widget)
                     if rendered is not None:
                         a = child["attrs"]
                         row, column = int(a.get("Grid.Row", 0)), int(a.get("Grid.Column", 0))
@@ -288,7 +330,7 @@ class Renderer:
             else:
                 layout = QHBoxLayout(widget) if attrs.get("Orientation") == "Horizontal" else QVBoxLayout(widget)
                 for child in children:
-                    rendered = self.render(child)
+                    rendered = self.render(child, parent=widget)
                     if rendered is not None:
                         layout.addWidget(rendered)
                 if kind == "StackPanel" and attrs.get("Orientation") != "Horizontal":
@@ -312,6 +354,76 @@ class Renderer:
             widget.setMaximumWidth(560)
         return widget
 
+    def mapping_changed(self, key, part, widget):
+        mapping = dict(self.mapping_values.get(key, {"type": 1, "mappings": [0]}))
+        if part == "Type":
+            mapping = {"type": widget.currentIndex()+1, "mappings": [0] if widget.currentIndex() == 0 else [] if widget.currentIndex() == 1 else [1]}
+        elif part == "Key":
+            code = widget.currentData()
+            if code is None:
+                return
+            codes = list(mapping["mappings"]) if mapping["type"] == 2 else []
+            if code not in codes and len(codes) < 16:
+                codes.append(code)
+            mapping = {"type": 2, "mappings": codes}
+            with QSignalBlocker(widget):
+                widget.setCurrentIndex(0)
+        else:
+            mapping = {"type": 3 if part == "Mouse" else 1, "mappings": [widget.currentData()]}
+        self.mapping_values[key] = mapping
+        self.apply(key, json.dumps(mapping))
+
+    def remove_mapping_key(self, key, code):
+        mapping = self.mapping_values[key]
+        mapping = {"type": 2, "mappings": [value for value in mapping["mappings"] if value != code]}
+        self.mapping_values[key] = mapping
+        self.apply(key, json.dumps(mapping))
+
+    def update_mappings(self, snapshot):
+        from ..native.legion_hid import BUTTONS, KEYBOARD_KEYS
+        for button in BUTTONS:
+            key = "LegionButton" + button
+            enabled = bool(snapshot["capabilities"].get(key))
+            value = snapshot["values"].get(key, {"type": 1, "mappings": [0]})
+            value = json.loads(value) if isinstance(value, str) else value
+            self.mapping_values[key] = value
+            mapping_type = value["type"]
+            for suffix in ("TypeComboBox", "ComboBox", "MouseComboBox", "KeyComboBox"):
+                widget = self.named.get(key+suffix)
+                if widget is None:
+                    continue
+                widget.setEnabled(enabled)
+                self.i18n.bind(widget, "" if enabled else "Unavailable on this device", "setToolTip")
+                with QSignalBlocker(widget):
+                    if suffix == "TypeComboBox":
+                        widget.setCurrentIndex(mapping_type-1)
+                    elif suffix != "KeyComboBox" and value["mappings"]:
+                        widget.setCurrentIndex(widget.findData(value["mappings"][0]))
+                if suffix in ("ComboBox", "MouseComboBox"):
+                    widget.setVisible(mapping_type == (1 if suffix == "ComboBox" else 3))
+            panel = self.named.get(key+"KeyboardPanel")
+            if panel:
+                panel.setVisible(mapping_type == 2)
+            for suffix in ("Picker", "KeyPicker", "MousePicker"):
+                picker = self.named.get(key+suffix)
+                if picker:
+                    picker.hide()
+            tags = self.named.get(key+"KeyTags")
+            if tags:
+                layout = tags.layout()
+                while layout.count():
+                    item = layout.takeAt(0)
+                    if item.widget():
+                        item.widget().deleteLater()
+                if mapping_type == 2:
+                    for code in value["mappings"]:
+                        label = next((name for name, usage in KEYBOARD_KEYS.items() if usage == code), str(code))
+                        chip = self.i18n.bind(QPushButton(tags), "{key} ×", key=self.i18n.text(label))
+                        chip.setProperty("translation_key", label)
+                        chip.setEnabled(enabled)
+                        chip.clicked.connect(lambda checked=False, k=key, c=code: self.remove_mapping_key(k,c))
+                        layout.addWidget(chip)
+
     def slider_action(self, widget, node, action):
         if not widget.isSliderDown():
             key = function_for(node["attrs"].get("Name", ""), self.reference["functions"])
@@ -320,7 +432,7 @@ class Renderer:
                 self.apply(key, widget.sliderPosition() / scale if scale != 1 else widget.sliderPosition())
 
     def pick_color(self, key, widget):
-        color = QColorDialog.getColor(parent=widget)
+        color = QColorDialog.getColor(parent=widget, title=self.i18n.text("Choose color"), options=QColorDialog.DontUseNativeDialog)
         if color.isValid() and key:
             self.apply(key, color.name())
 
@@ -342,7 +454,7 @@ class Renderer:
                 continue
             supported = bool(caps.get(key))
             widget.setEnabled(supported)
-            widget.setToolTip("" if supported else f"{key}: device unavailable or pending migration")
+            self.i18n.bind(widget, "" if supported else "Unavailable on this device", "setToolTip")
             if key not in values:
                 continue
             value = values[key]
@@ -357,19 +469,21 @@ class Renderer:
                         widget.clear()
                         for option in options:
                             widget.addItem(str(option), option)
+                        self.i18n.combo(widget, [str(option) for option in options])
                     widget.setCurrentIndex(widget.findData(value))
                 elif isinstance(widget, QLineEdit):
                     widget.setText(str(value))
                 elif widget.objectName() == "FanCurveCanvas":
                     widget.set_data(value)
+        self.update_mappings(snapshot)
         section = self.named.get("TDPSliderSection")
         if section:
             section.setVisible(values.get("LegionPerformanceMode") == 255)
         for name, key in (("CurrentTDPValueText", "CurrentTDP"), ("TDPValueText", "TDP"), ("ActiveProfileText", "ActiveProfile")):
             widget = self.named.get(name)
             if isinstance(widget, QLabel) and key in values:
-                widget.setText(str(values[key]))
-        # Update source bindings for visibility driven by toggle state.
+                self.i18n.bind(widget, "{value}", value=values[key])
+        # 原界面中由开关驱动的可见性绑定。
         for widget, binding in self.pending_bindings:
             match = re.search(r"ElementName=(\w+), Path=IsOn", binding)
             if match and isinstance(self.named.get(match[1]), Toggle):

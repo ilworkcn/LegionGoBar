@@ -29,7 +29,7 @@ def call_service(namespace, operation):
     finally:
         service = None
         locator = None
-        # Dispatch proxies can form cycles; release them while COM is initialized.
+        # COM 代理可能形成循环引用，在 COM 仍初始化时释放。
         gc.collect()
         pythoncom.CoUninitialize()
     if error is not None:

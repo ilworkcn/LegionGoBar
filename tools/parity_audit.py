@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -21,13 +22,17 @@ def audit():
         "LegionPerformanceMode", "LegionFanCurveData", "PanelBrightness", "CPUBoost", "CPUEPP", "OSPowerMode", "Resolution", "RefreshRate"}
     implemented |= {prefix + "Enabled" for prefix in AMD_FEATURES} | set(AMD_FIELDS) | {"AMDFluidMotionFrameEnabled"}
     implemented |= {"LosslessScaling" + name for name in LS_FIELDS} | {"LosslessScalingSaveAndRestart"}
-    # An adapter exists != an interaction is complete != hardware verification.
+    # 适配器存在、交互完整和硬件验证是三个不同的状态。
     controls = []
     for control in reference["controls"]:
         key = function_for(control["name"], reference["functions"])
         connected = key in implemented if key else False
         if key and key.startswith("LegionButton"):
             connected = control["type"] == "ComboBox" and control["name"] == key + "ComboBox"
+        import re
+        mapping = re.fullmatch(r"(LegionButton(?:Y1|Y2|Y3|M1|M2|M3|Desktop|Page))(Type|Mouse|Key)ComboBox", control["name"])
+        if mapping:
+            key, connected = mapping[1], True
         if control["name"] == "LosslessScalingSaveSettingsButton":
             key, connected = "LosslessScalingSaveAndRestart", True
         controls.append({"name": control["name"], "page": control["page"], "type": control["type"],

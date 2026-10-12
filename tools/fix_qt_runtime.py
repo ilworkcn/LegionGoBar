@@ -1,9 +1,4 @@
-"""Avoid shadowing the Windows ICU ABI with an unrelated versioned ICU DLL.
-
-Qt 6.12's Qt6Core imports the unversioned Windows ICU entry points. Some
-build environments expose a different private ICU DLL to dependency analysis.
-Only remove a generated copy when its exports cannot satisfy Qt's imports.
-"""
+"""检查 Qt 所需 ICU ABI，移除构建目录中不兼容的私有 DLL，使用 Windows 系统实现。"""
 import sys
 from pathlib import Path
 

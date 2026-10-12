@@ -9,9 +9,10 @@ from pathlib import Path
 
 from .storage import Store
 from .backend import Backend
+from .i18n import normalize_language
 
 
-def main(argv=None):
+def build_parser():
     parser = argparse.ArgumentParser(description="Independent Python Legion Go desktop frontend")
     parser.add_argument("--demo", action="store_true", help="Preview only; no device writes or real profile switching")
     parser.add_argument("--diagnose", action="store_true", help="Read-only JSON capability probe; no GUI")
@@ -21,7 +22,14 @@ def main(argv=None):
     parser.add_argument("--screenshot", type=Path, help="Capture a preview and exit (forces --demo)")
     parser.add_argument("--tab", default="Quick")
     parser.add_argument("--smoke", action="store_true", help="Render all pages offscreen and exit (forces --demo)")
-    args = parser.parse_args(argv)
+    parser.add_argument("--windowed", "--debug-window", action="store_true", help="Use the standard window frame for debugging")
+    parser.add_argument("--lang", type=normalize_language,
+                        choices=("auto", "zh_CN", "en_US"), help="Interface language: auto, zh-CN or en-US")
+    return parser
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
     if args.screenshot or args.smoke:
         args.demo = True
     temporary = tempfile.TemporaryDirectory(prefix="LegionGoBar-preview-", ignore_cleanup_errors=True) if args.demo and not args.data_dir else None
@@ -43,11 +51,8 @@ def main(argv=None):
     from PySide6.QtWidgets import QApplication
     from .ui.window import Window
     app = QApplication(sys.argv[:1])
-    # Offscreen Qt does not automatically discover Windows fonts.
-    for filename in ("segoeui.ttf", "segoeuib.ttf", "segmdl2.ttf"):
-        font = Path("C:/Windows/Fonts") / filename
-        if font.exists():
-            QFontDatabase.addApplicationFont(str(font))
+    from .ui.theme import configure_font
+    configure_font(app)
     app.setApplicationName("LegionGoBar")
     server = None
     if not args.demo:
@@ -65,7 +70,10 @@ def main(argv=None):
             QLocalServer.removeServer(name)
             if not server.listen(name):
                 raise RuntimeError(server.errorString())
-    window = Window(backend, store, no_tray=args.no_tray or args.smoke or bool(args.screenshot))
+    from .i18n import I18n
+    language = I18n(args.lang or store.get("Language", "auto"), app)
+    window = Window(backend, store, no_tray=args.no_tray or args.smoke or bool(args.screenshot),
+                    windowed=args.windowed, i18n=language)
     window.show()
     if server:
         def connected():
@@ -88,6 +96,8 @@ def main(argv=None):
             else:
                 window.select(args.tab)
                 app.processEvents()
+                if app.focusWidget():
+                    app.focusWidget().clearFocus()
                 args.screenshot.parent.mkdir(parents=True, exist_ok=True)
                 if not window.grab().save(str(args.screenshot)):
                     raise OSError("Could not save screenshot")

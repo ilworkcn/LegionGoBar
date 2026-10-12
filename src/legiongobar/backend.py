@@ -110,7 +110,7 @@ class Backend:
             if self.controller.available():
                 self.capabilities.update({key: True for key in HID_KEYS})
                 self.values["DeviceDisplayName"] = "Legion Go"
-                # Saved requests are not reported as verified physical state.
+                # 保存的请求值不作为已确认的设备状态。
                 self.values.update({key: self.store.get(key, value) for key, value in HID_DEFAULTS.items()})
                 status = self.controller.read_status()
                 if status:
@@ -167,6 +167,11 @@ class Backend:
                   "LegionLeftStickDeadzone": (0, 50), "LegionRightStickDeadzone": (0, 50),
                   "LegionLeftTriggerStart": (0, 100), "LegionLeftTriggerEnd": (0, 100),
                   "LegionRightTriggerStart": (0, 100), "LegionRightTriggerEnd": (0, 100), "Settings_LegionControllerSleepMinutes": (0, 60)}
+        if key.startswith("LegionButton"):
+            mapping = json.loads(value) if isinstance(value, str) else value
+            if not isinstance(mapping, dict) or set(mapping) != {"type", "mappings"}:
+                raise ValueError("Invalid button mapping")
+            hid.button_mapping(key.removeprefix("LegionButton"), mapping["type"], mapping["mappings"])
         if key in ranges:
             hid.bounded(value, *ranges[key])
         if key == "LegionPerformanceMode" and value not in (1, 2, 3, 255):

@@ -7,7 +7,7 @@ from legiongobar.native import legion_hid as hid
 
 
 def test_back_button_packet_matches_reference_y1_keyboard():
-    # GoTweaks SetButtonMappingWithType command; Ctrl+A HID usages E0,04.
+    # GoTweaks 按键映射指令；Ctrl+A 对应 HID 用法 E0、04。
     packet = hid.button_mapping("Y1", 2, [0xE0, 0x04])
     assert packet[:12] == bytes.fromhex("05 00 12 0A 03 01 11 01 1C 02 E0 04")
     assert len(packet) == 64 and packet[12:] == bytes(52)

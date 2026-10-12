@@ -1,4 +1,4 @@
-"""Copy dependency license texts into the source and portable distribution."""
+"""收集依赖许可证并放入源码与便携分发目录。"""
 from importlib import metadata
 from pathlib import Path
 import shutil

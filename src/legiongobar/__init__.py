@@ -1,3 +1,3 @@
-"""Independent Legion Go desktop frontend. No Xbox activation or runtime."""
+"""LegionGoBar 独立桌面程序与原生系统接口。"""
 
-__version__ = "0.1.0"
+__version__ = "0.2.1"

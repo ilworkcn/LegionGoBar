@@ -47,7 +47,7 @@ class XInputState(ctypes.Structure):
 
 
 class Gamepad:
-    """Use the Windows controller API; this does not require Xbox software."""
+    """调用 Windows 控制器 API。"""
 
     def __init__(self):
         self.dll = ctypes.WinDLL("xinput1_4", use_last_error=True) if os.name == "nt" else None

@@ -1,7 +1,4 @@
-"""Capture the checked-out GoTweaks UI and its exact source provenance.
-
-Run explicitly when updating the reference, never at application startup.
-"""
+"""导入当前检出的 GoTweaks 界面与对应源码版本。"""
 from __future__ import annotations
 
 import argparse
@@ -55,7 +52,7 @@ def capture(root: Path, output: Path):
                 key = "Quick"
             pages[key] = convert(e)
     controls = []
-    # Include static controls, template controls, hidden panels and auxiliary names.
+    # 清单同时包含静态控件、模板控件、隐藏面板和辅助名称。
     for e in doc.iter():
         if tag(e) not in KINDS:
             continue

@@ -10,8 +10,8 @@ from ..native.legion_hid import FAN_FLOORS as FLOORS
 class FanCurve(QWidget):
     edited = Signal(str)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.values = FLOORS.copy()
         self.selected = 0
         self.dragging = False

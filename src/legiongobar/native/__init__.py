@@ -1,1 +1,1 @@
-"""Windows APIs and source-derived Lenovo protocol adapters."""
+"""LegionGoBar 独立桌面程序与原生系统接口。"""

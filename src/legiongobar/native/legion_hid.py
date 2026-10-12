@@ -1,8 +1,4 @@
-"""Legion Go (first generation) HID protocol.
-
-Ported from GoTweaks LegionGoController.cs at reference commit 99ed5f5.
-Go S deliberately uses a separate protocol and is not matched here.
-"""
+"""第一代 Legion Go HID 协议；设备筛选和数据包布局以 GoTweaks 基准为准。"""
 from __future__ import annotations
 
 import re
@@ -13,6 +9,17 @@ LEFT, RIGHT = 0x03, 0x04
 FAN_FLOORS = [44, 48, 55, 60, 71, 79, 87, 87, 100, 100]
 BUTTONS = {"Y1": 0x1C, "Y2": 0x1D, "Y3": 0x1E, "M1": 0x20, "M2": 0x21, "M3": 0x22, "Desktop": 0x25, "Page": 0x26}
 GAMEPAD_ACTIONS = [0, *range(3, 17), *range(0x12, 0x1A), 0x23, 0x24, 0x25, 0x26]
+# 键名对应上游 KeyboardKey 枚举中的 HID 用法值。
+KEYBOARD_KEYS = {chr(65+i): 0x04+i for i in range(26)}
+KEYBOARD_KEYS.update({str(i): 0x1D+i for i in range(1,10)})
+KEYBOARD_KEYS.update({f"F{i}": 0x39+i for i in range(1,13)})
+KEYBOARD_KEYS.update({"0": 0x27, "Enter": 0x28, "Esc": 0x29, "Backspace": 0x2A, "Tab": 0x2B,
+                     "Space": 0x2C, "[": 0x2F, "]": 0x30, "PrintScr": 0x46, "Pause": 0x48,
+                     "Insert": 0x49, "Home": 0x4A, "PgUp": 0x4B, "Delete": 0x4C, "End": 0x4D,
+                     "PgDn": 0x4E, "Right": 0x4F, "Left": 0x50, "Down": 0x51, "Up": 0x52,
+                     "LCtrl": 0xE0, "LShift": 0xE1, "LAlt": 0xE2, "LWin": 0xE3,
+                     "RCtrl": 0xE4, "RShift": 0xE5, "RAlt": 0xE6, "RWin": 0xE7})
+
 ACTIVATION_BUTTONS = [0, 0x16, 0x17, 0x18, 0x19, 0x1C, 0x1D, 0x21, 0x22]
 
 

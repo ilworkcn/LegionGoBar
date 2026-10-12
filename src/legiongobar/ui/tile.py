@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, QRect
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QPushButton
+from .theme import FONT_FAMILY
 
 
 class Tile(QPushButton):
@@ -27,7 +28,7 @@ class Tile(QPushButton):
         font.setPixelSize(24)
         painter.setFont(font)
         painter.drawText(QRect(0, 12, self.width(), 32), Qt.AlignCenter, self.glyph)
-        font = QFont("Segoe UI")
+        font = QFont(FONT_FAMILY)
         font.setPixelSize(14)
         painter.setFont(font)
         painter.drawText(QRect(2, 46, self.width() - 4, 24), Qt.AlignCenter, self.label)

@@ -1,4 +1,4 @@
-QWidget { background: #25282C; color: #FFFFFF; font-family: 'Segoe UI'; font-size: 14px; }
+QWidget { background: #25282C; color: #FFFFFF; font-family: 'Microsoft YaHei'; font-size: 14px; }
 QWidget[role='card'] { background: #30343A; border: 2px solid #50555C; border-radius: 8px; }
 QWidget[role='card'] QWidget { background: transparent; }
 QLabel { border: none; background: transparent; }
@@ -11,10 +11,19 @@ QPushButton:pressed { background: #3A3F47; }
 QPushButton:focus, QComboBox:focus, QLineEdit:focus, QCheckBox:focus { border: 2px solid white; }
 QWidget:disabled { color: #8E9298; }
 QPushButton:disabled, QComboBox:disabled { background: #2C3035; border-color: #3A3F46; }
-QComboBox::drop-down { border: none; width: 22px; }
+QComboBox { padding-right: 6px; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; border: none; width: 28px; }
+QComboBox::down-arrow { image: url("__UI_ASSETS__/chevron-down.svg"); width: 14px; height: 14px; }
+QComboBox::down-arrow:disabled { image: url("__UI_ASSETS__/chevron-down.svg"); }
+QPushButton[role='window-control'] { padding: 0; min-height: 30px; max-height: 30px; min-width: 34px; max-width: 34px; border-radius: 6px; }
+QPushButton[role='window-close']:hover { background: #b8414c; }
+QPushButton[role='window-close'] { padding: 0; min-height: 30px; max-height: 30px; min-width: 34px; max-width: 34px; border-radius: 6px; }
+QPushButton[role='disclosure'] { padding: 0; min-height: 30px; max-height: 30px; min-width: 34px; max-width: 34px; border-radius: 6px; }
+QLabel[glyph='true'] { font-family: 'Segoe MDL2 Assets'; }
 QComboBox QAbstractItemView { background: #30343A; selection-background-color: #484E58; padding: 5px; }
-QSlider::groove:horizontal { background: #626970; height: 4px; border-radius: 2px; }
-QSlider::sub-page:horizontal { background: #58C8ED; border-radius: 2px; }
+QSlider { border: none; background: transparent; }
+QSlider::groove:horizontal { border: none; background: #626970; height: 4px; border-radius: 2px; }
+QSlider::sub-page:horizontal { border: none; background: #58C8ED; border-radius: 2px; }
 QSlider::handle:horizontal { background: #58C8ED; border: 4px solid #3E434B; width: 12px; height: 12px; margin: -8px 0; border-radius: 10px; }
 QSlider:focus::handle:horizontal { border: 2px solid white; }
 QSlider::handle:horizontal:disabled { background: #8E9298; }

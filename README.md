@@ -1,70 +1,112 @@
 # LegionGoBar
 
-以 Python + PySide6 为主要框架、面向第一代 Lenovo Legion Go 的独立桌面控制程序。窗口、托盘、前台进程检测、配置、交互和硬件适配都由 Python 执行；AMD 通过一个原生 C ABI DLL 调用驱动。无需 Xbox Game Bar、Xbox App、UWP/MSIX 注册、GoTweaks helper 或 .NET 运行时。
+**作者：SUNNYQUAN**
 
-**当前为迁移开发版，不是已经通过“100% 复刻”验收的发行版。** 原始控件已经建立完整可追溯的基准，但一部分功能仍未接入，Qt 与 UWP 的像素差异、动态配置卡片和掌机硬件行为还需逐项验证。不可用的控件会禁用，不会假装已修改硬件。
+LegionGoBar 是面向第一代 **Lenovo Legion Go** 的独立掌机控制前端，以 **Python + PySide6（Qt）** 实现。项目以 [GoTweaks](https://github.com/corando98/GoTweaks) 为复刻基准，目标是完整复现其界面与功能，提供性能调节、显示设置、手柄控制和游戏配置等常用功能。
 
-## 固定基准
+程序独立运行，无需 Xbox Game Bar、Xbox App 或 Legion Space 前端。日常使用采用无边框窗口，支持触屏、键鼠和手柄导航，并提供简体中文与英文界面。所有界面文字统一使用 Windows 内置微软雅黑。
 
-- 源仓库：用户指定的 GoTweaks-Desktop 当前检出。
-- 分支：`release/v0.3.98.0`。
-- 提交：`99ed5f5f8c22bb78bfffee9b37f9a04094f30482`。
-- 原始 XAML：`reference/GamingWidget.xaml`；其 SHA-256、9 个分页、535 条控件记录、375 个功能标识保存在 `src/legiongobar/assets/reference.json`。
-- 当前窗口暴露 8 个目标相关分页；GPD 分页保留在基准中，尚未接入产品窗口。
+## 界面演示
 
-运行时使用仓库内基准，不需要源仓库留在电脑上。更新基准必须显式执行 `tools/import_reference.py`。
+以下图片由 LegionGoBar 实际运行并截图，使用演示模式展示界面。
 
-## 运行
+### 首次设置
 
-Windows x64、Python 3.11 或更新版本：
+![首次设置](docs/images/setup.zh-CN.png)
+
+### 快捷设置
+
+![快捷设置](docs/images/quick.zh-CN.png)
+
+### 性能设置
+
+![性能设置](docs/images/power.zh-CN.png)
+
+### 显示设置
+
+![显示设置](docs/images/display.zh-CN.png)
+
+### Legion Go 控制
+
+![Legion Go 控制](docs/images/legion.zh-CN.png)
+
+## 功能
+
+- **快捷控制**：性能模式、CPU Boost、EPP、亮度和常用功能磁贴。
+- **性能调节**：TDP 与加速功率、Windows 电源模式、CPU 能效偏好。
+- **Legion Go 设备控制**：性能模式、风扇、充电上限、RGB 灯光、触控板、震动、摇杆、扳机与陀螺仪设置；背键支持手柄动作、键盘组合与鼠标操作映射。
+- **显示与图形**：分辨率、刷新率，以及按驱动能力提供的 AMD RSR、Anti-Lag、Boost、Chill、锐化与 AFMF 设置。
+- **Lossless Scaling 集成**：读取和编辑 Default 配置，应用设置并重启。
+- **游戏配置**：按游戏可执行文件保存设置，自动切换配置，支持 JSON 导入与导出。
+- **桌面使用**：托盘、全局唤出快捷键、手柄导航、无边框窗口与调试窗口模式。
+- **多语言**：简体中文、英文和跟随系统语言；可在系统分页即时切换。
+
+项目正在开发中。功能可用性取决于设备、固件、驱动及已安装的配套软件；完整的功能对照见 [复刻进度](docs/PARITY.md)。
+
+## 安装与运行
+
+### 便携版
+
+解压便携版后运行 `LegionGoBar.exe`，保留同目录下的 `_internal` 文件夹。
+
+### 从源码运行
+
+环境要求：Windows x64、Python 3.11 或更新版本。
 
 ```powershell
+git clone https://github.com/ilworkcn/LegionGoBar.git
+cd LegionGoBar
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
 .venv\Scripts\python.exe -m legiongobar
 ```
 
-也可以使用打包后的 `LegionGoBar.exe`。`Ctrl+Alt+G` 唤出窗口；窗口关闭时收进托盘，托盘菜单中选择 Exit 才退出。手柄方向键导航、A 操作、B 返回，LT/RT 切换分页。这里的 XInput 是 Windows 控制器 API，不需要 Xbox 应用或 Game Bar。
+## 使用方式
+
+- 按 `Ctrl+Alt+G` 唤出窗口。
+- 拖动顶部标题区域移动窗口，拖动右下角调整大小。
+- 关闭窗口后收进托盘；通过托盘菜单的“退出”结束程序。
+- 手柄方向键导航，`A` 确认，`B` 返回，`LT / RT` 切换分页。
+- 在“系统 → 语言”中切换简体中文、English 或跟随系统。
+
+日常启动默认使用无边框窗口。调试时可启用标准窗口边框：
 
 ```powershell
-# 强制预览：不写设备、不执行真实游戏配置切换，设置使用临时目录
-.venv\Scripts\python.exe -m legiongobar --demo
-# 只读诊断：读取设备能力，不修改功率、风扇、灯光或电源计划
-.venv\Scripts\python.exe -m legiongobar --diagnose
-# 便携 EXE 可将只读诊断直接保存为文件
-LegionGoBar.exe --diagnostic-output .\diagnostics.json
-# 渲染全部目标分页并退出，强制预览
-.venv\Scripts\python.exe -m legiongobar --smoke --data-dir .\build\smoke-data
+LegionGoBar.exe --windowed
+LegionGoBar.exe --lang zh-CN
+LegionGoBar.exe --lang en-US
+LegionGoBar.exe --demo
 ```
 
-正常设置保存到 `%LOCALAPPDATA%\LegionGoBar\settings.json`。需要管理员权限的 WMI 操作会由 Windows 返回结果，程序不会启动时自动提权或写入系统设置。
+源码运行也接受相同参数，例如：
 
-## 已接入的适配
+```powershell
+.venv\Scripts\python.exe -m legiongobar --windowed --lang zh-CN
+```
 
-| 范围 | 实现 | 验证边界 |
-| --- | --- | --- |
-| Windows | CPU Boost、EPP、OS 电源模式、AC/DC 电源键动作、熄屏时间、亮度、分辨率与刷新率 | 支持查询与写后回读；亮度依赖 WMI 内置屏 |
-| Legion Go WMI | 四种性能模式、SPL/SPPT/FPPT、TDP Boost、全速风扇、80% 充电限制、温度/RPM 查询、Custom 模式风扇曲线 | 多个功率限制部分失败时回滚；掌机实测未完成 |
-| Legion Go HID | 灯光、触控板、触控板触感、震动、背键/前键协议、Nintendo 布局、摇杆死区、扳机行程、摇杆鼠标、陀螺仪配置、手柄休眠时间 | 数据包已单测；灯光/触控板支持 b0:01 回读；其他项目明确显示发送而未确认 |
-| AMD | RSR、Anti-Lag、Boost、Chill、锐化，AFMF 与扩展控制按驱动能力检测 | 本机 AMD 的部分只读查询已成功；不支持的驱动功能保持禁用 |
-| Lossless Scaling | Default 配置的已有 XML 字段编辑，备份、冲突检测、Apply and Restart | 修改先暂存；保留未知字段；重启采用正常关闭，不强杀进程；多游戏匹配和热键开关仍待迁移 |
-| 配置 | 按可执行文件路径匹配、保存已接入设置、JSON 导入导出、前台切换应用 | 原始 GoTweaks 配置格式、全局回退、完整 AC/DC 配置逻辑尚未等价 |
+| 参数 | 用途 |
+| --- | --- |
+| `--windowed` / `--debug-window` | 使用系统标题栏与标准窗口边框 |
+| `--lang auto / zh-CN / en-US` | 指定本次启动的界面语言 |
+| `--demo` | 演示模式，预览界面与操作 |
+| `--no-tray` | 关闭托盘，关闭窗口即退出 |
+| `--data-dir PATH` | 指定配置保存目录 |
+| `--diagnose` | 输出设备能力诊断 |
+| `--diagnostic-output PATH` | 将设备诊断保存为 JSON |
 
-底层背键协议支持 gamepad/keyboard/mouse；当前常规控件仅连接 gamepad 动作选择，键盘组合与鼠标选择 UI 仍待完成。这不等于所有手柄功能已经验收。
+配置默认保存在 `%LOCALAPPDATA%\LegionGoBar\settings.json`。
 
-## 剩余复刻工作
+## 开发
 
-详细差异以 `docs/parity.json` 和 `docs/PARITY.md` 为准。主要未完成项：原生 RTSS OSD/帧时间图、FPS 限制、AutoTDP PID/学习策略、Sticky TDP、HDR、自适应亮度、AMD 显示颜色、完整快捷键与磁贴定制、动态游戏卡片与原配置兼容、VIIPER 虚拟手柄、灯光/触感实验功能、EC 解锁风扇及逐模式保存、驱动检查/更新与安装流程。
-
-复刻判定需要原程序与独立程序在同一掌机、相同 Windows 缩放和分辨率下逐页面对照，还需要逐项操作的设备回读与物理响应。已有单测与预览不能替代这些验收。
-
-## 测试与打包
+代码按界面、配置和设备接口划分，使用中文注释。界面翻译位于 `src/legiongobar/locales/`，原始界面参考保存在 `reference/`。
 
 ```powershell
 .venv\Scripts\python.exe -m pytest -q
 powershell -ExecutionPolicy Bypass -File tools\build.ps1 -Python .venv\Scripts\python.exe
 ```
 
-测试覆盖原始 HID 数据包、灯光状态与固件字节序、风扇表格式、设备筛选、部分写入失败、TDP 回滚、设置持久化、XML 冲突保护、控件基准与页面渲染、键盘导航回归。测试不对真实硬件执行设置写入。
+## Credits
 
-Qt for Python 官方资料：[Qt for Python](https://doc.qt.io/qtforpython-6/)。许可与来源见 `THIRD-PARTY-NOTICES.md`。
+感谢 [corando98/GoTweaks](https://github.com/corando98/GoTweaks) 提供原始界面、交互设计与设备控制实现。本项目以该仓库为完整复刻目标；开发时使用的本地 `GoTweaks-Desktop` 是其 fork。
+
+LegionGoBar 的作者为 **SUNNYQUAN**。本项目代码使用 [MIT License](LICENSE)，第三方代码、参考资料和依赖的许可声明见 [Third-party notices](THIRD-PARTY-NOTICES.md)。

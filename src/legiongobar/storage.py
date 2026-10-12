@@ -8,7 +8,7 @@ from threading import RLock
 
 
 class Store:
-    """Atomic local persistence, independent of UWP package settings."""
+    """独立于 UWP 设置的本地原子持久化。"""
 
     def __init__(self, directory: Path | None = None):
         self.directory = directory or Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "LegionGoBar"
@@ -56,7 +56,7 @@ class Store:
                 raise ValueError("Invalid profile record")
             if not all(isinstance(k, str) and isinstance(v, (str, int, float, bool, list)) for k, v in profile["settings"].items()):
                 raise ValueError("Invalid profile settings")
-        # Validate the entire document before mutating the store.
+        # 完整校验导入文档后再修改本地配置。
         with self.lock:
             self.data["profiles"].update(profiles)
             self.save()

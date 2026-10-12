@@ -1,8 +1,4 @@
-"""ctypes access to the upstream ADLX C ABI, without C# or a helper process.
-
-Function signatures come from GoTweaks ADLXPINVOKE.cs. The small AMD binding
-DLL is native code; AMD's installed driver supplies the ADLX runtime.
-"""
+"""直接通过 ctypes 调用上游 ADLX C ABI，原生接口由同一基准中的头文件确定。"""
 from __future__ import annotations
 
 import ctypes as C

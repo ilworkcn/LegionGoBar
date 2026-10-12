@@ -1,11 +1,17 @@
 # Third-party notices
 
-LegionGoBar-original Python source is covered by the root MIT LICENSE.
+LegionGoBar is authored by **SUNNYQUAN**. Original Python code in this project is distributed under the root [MIT License](LICENSE).
 
-The GoTweaks UI reference, control names, wording and adapted Lenovo protocols originate from GoTweaks, reference commit `99ed5f5f8c22bb78bfffee9b37f9a04094f30482`. The upstream MIT notice is preserved in `reference/GoTweaks-LICENSE.txt`. Upstream: https://github.com/corando98/GoTweaks .
+## GoTweaks
 
-`src/legiongobar/assets/native/ADLXCSharpBind.dll` is the native x64 ADLX binding from that same checkout. It is called with ctypes; no managed C# runtime is loaded. The matching SWIG interface and generated ABI declaration are preserved in `reference/adlx/`. The AMD ADLX SDK agreement is preserved as `reference/adlx/ADLX SDK License Agreement.pdf`. The binding uses AMD's installed driver runtime. Corresponding upstream SDK and build source are in the source checkout's `ADLX/` directory and https://github.com/GPUOpen-LibrariesAndSDKs/ADLX .
+Credits: **[corando98/GoTweaks](https://github.com/corando98/GoTweaks)**.
 
-Qt/PySide6, psutil, hidapi and pywin32 retain their own licenses. Dependency license texts are collected explicitly into `reference/licenses/` and included with the portable build, including Python and the PyInstaller bootloader notice. Windows fonts are loaded from the Windows installation and are not bundled. The distribution also includes this document and the reference notices.
+GoTweaks provides the UI reference, control names and adapted Lenovo device protocols for this project. The local `GoTweaks-Desktop` checkout is a fork used as the porting baseline, at commit `99ed5f5f8c22bb78bfffee9b37f9a04094f30482`. The original notice is preserved in `reference/GoTweaks-LICENSE.txt`; copied reference files retain their original attribution. These credits identify the upstream project and do not change LegionGoBar's author.
 
-VIIPER, PawnIO, WinRing0 and the GoTweaks helper executable are not bundled or launched by this version. Their features must not be described as implemented here.
+## AMD ADLX
+
+`src/legiongobar/assets/native/ADLXCSharpBind.dll` is the native x64 ADLX binding from the reference checkout. LegionGoBar calls its C ABI through ctypes. The corresponding interface and ABI declaration are retained in `reference/adlx/`, together with `ADLX SDK License Agreement.pdf`. The binding uses AMD's installed driver runtime. SDK source: [GPUOpen-LibrariesAndSDKs/ADLX](https://github.com/GPUOpen-LibrariesAndSDKs/ADLX).
+
+## Runtime dependencies
+
+Python, Qt/PySide6, shiboken6, psutil, hidapi, pywin32 and the PyInstaller bootloader retain their respective licenses. License texts are included in `reference/licenses/` and in the portable distribution. Windows fonts are loaded from the system installation and are not bundled.
