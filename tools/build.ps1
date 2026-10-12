@@ -11,7 +11,7 @@ try {
     & $resolvedPython "$PSScriptRoot/collect_notices.py" "$repoRoot/reference/licenses"
     if ($LASTEXITCODE -ne 0) { throw "Dependency notice collection failed" }
     & $resolvedPython -m PyInstaller --noconfirm --clean --windowed --onedir --name LegionGoBar `
-        --paths "$repoRoot/src" --distpath $DistPath --workpath $WorkPath --specpath $WorkPath `
+        --collect-all atomics --paths "$repoRoot/src" --distpath $DistPath --workpath $WorkPath --specpath $WorkPath `
         --add-data "$repoRoot/src/legiongobar/assets/reference.json;legiongobar/assets" `
         --add-data "$repoRoot/src/legiongobar/locales;legiongobar/locales" `
         --add-data "$repoRoot/src/legiongobar/assets/theme.qss;legiongobar/assets" `

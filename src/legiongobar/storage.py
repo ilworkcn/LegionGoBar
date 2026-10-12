@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import os
 import tempfile
 from pathlib import Path
@@ -14,7 +15,7 @@ class Store:
         self.directory = directory or Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "LegionGoBar"
         self.path = self.directory / "settings.json"
         self.lock = RLock()
-        self.data = {"version": 1, "settings": {}, "profiles": {}, "quick_tiles": []}
+        self.data = {"version": 1, "settings": {}, "profiles": {}, "quick_tiles": [], "global_profile": {"settings": {}}}
         if self.path.exists():
             loaded = json.loads(self.path.read_text(encoding="utf-8"))
             if not isinstance(loaded, dict) or loaded.get("version") != 1:
@@ -44,19 +45,37 @@ class Store:
             return self.data["settings"].get(key, default)
 
     def export_profiles(self, path: Path):
-        path.write_text(json.dumps({"version": 1, "profiles": self.data["profiles"]}, indent=2, ensure_ascii=False), encoding="utf-8")
+        path.write_text(json.dumps({"version": 1, "profiles": self.data["profiles"], "global_profile": self.data["global_profile"]}, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def import_profiles(self, path: Path):
-        imported = json.loads(path.read_text(encoding="utf-8"))
+        if path.suffix.lower() == ".xml":
+            from .profile_xml import read_profiles
+            imported = read_profiles(path)
+        else:
+            imported = json.loads(path.read_text(encoding="utf-8"))
         profiles = imported.get("profiles") if isinstance(imported, dict) else None
         if not isinstance(imported, dict) or imported.get("version") != 1 or not isinstance(profiles, dict):
             raise ValueError("Expected LegionGoBar profile export version 1")
+        from .profiles import validate_record, canonical
+        normalized = {}
         for key, profile in profiles.items():
-            if not isinstance(key, str) or not isinstance(profile, dict) or not isinstance(profile.get("settings"), dict):
-                raise ValueError("Invalid profile record")
-            if not all(isinstance(k, str) and isinstance(v, (str, int, float, bool, list)) for k, v in profile["settings"].items()):
-                raise ValueError("Invalid profile settings")
-        # 完整校验导入文档后再修改本地配置。
+            if not isinstance(key, str) or not key:
+                raise ValueError("Invalid profile path")
+            validate_record(profile)
+            normalized[canonical(key)] = profile
+        if "global_profile" in imported:
+            validate_record(imported["global_profile"])
+        # 完整校验后一次性保存，写盘失败时恢复内存数据。
         with self.lock:
-            self.data["profiles"].update(profiles)
-            self.save()
+            previous = copy.deepcopy(self.data)
+            try:
+                self.data["profiles"].update(normalized)
+                if "global_profile" in imported:
+                    self.data["global_profile"] = imported["global_profile"]
+                self.save()
+            except Exception:
+                self.data = previous
+                raise
+
+        records = [*normalized.values(), imported.get("global_profile", {})]
+        return sum(len(record.get("upstream_xml", {})) for record in records)

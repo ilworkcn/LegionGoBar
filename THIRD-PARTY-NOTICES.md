@@ -21,3 +21,10 @@ Python, Qt/PySide6, shiboken6, psutil, hidapi, pywin32 and the PyInstaller bootl
 界面内置 Noto Sans CJK SC 静态字体，依据 SIL Open Font License 1.1 分发。
 来源：https://github.com/notofonts/noto-cjk/tree/main/Sans
 完整许可：`src/legiongobar/assets/fonts/OFL.txt`（便携包位于 `_internal/legiongobar/assets/fonts/OFL.txt`）。
+
+
+## RTSS shared memory and atomics
+
+RTSS 共享内存布局参考 [RTSSSharedMemoryNET SDK header](https://github.com/spencerhakim/RTSSSharedMemoryNET/blob/master/RTSSSharedMemoryNET/RTSSSharedMemory.h) 与 [RTSS SDK header](https://github.com/jaxFF/RTSSTweaks/blob/master/thirdparty/rtss-sdk/Include/RTSSSharedMemory.h)。Python 实现不加载 RTSSSharedMemoryNET.dll。
+
+原子操作使用 [atomics](https://github.com/doodspav/atomics)（MIT）及其 patomic、cffi 依赖，发行包包含相应依赖许可。RTSS 本体需要用户自行安装。

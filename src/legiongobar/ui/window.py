@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import time
+import sys
 from pathlib import Path
 from importlib.resources import files
 
-from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QEvent, QSize
+from PySide6.QtCore import Qt, Signal, QObject, QSignalBlocker, QRunnable, QThreadPool, QTimer, QEvent, QSize
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont, QKeyEvent
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
                                QGridLayout, QPushButton, QStackedWidget, QScrollArea, QSystemTrayIcon,
-                               QMenu, QAbstractButton, QSlider, QComboBox, QLineEdit, QSpinBox, QSizeGrip)
+                               QMenu, QAbstractButton, QSlider, QComboBox, QLineEdit, QSpinBox, QSizeGrip, QDialog, QDialogButtonBox, QKeySequenceEdit, QMessageBox, QFileDialog, QInputDialog)
 
 from .reference import Renderer, Toggle, load_reference
 from .profiles import ProfilesPage
+from ..profiles import Profiles
 from .tile import Tile
 from .slider import Slider
 from .chrome import TitleBar
@@ -43,6 +45,9 @@ class Window(QMainWindow):
         super().__init__()
         configure_font(QApplication.instance())
         self.backend, self.store = backend, store
+        self.profiles = Profiles(store)
+        self.hotkey_manager = None
+        self.shortcut_buttons = 0
         self.i18n = i18n or I18n(store.get("Language", "auto"), self)
         self.windowed = windowed
         if not windowed:
@@ -55,7 +60,6 @@ class Window(QMainWindow):
         self.pool.setMaxThreadCount(1)
         self.jobs = set()
         self.busy = set()
-        self.last_profile = None
         self.exit_requested = False
         self.setWindowTitle("LegionGoBar")
         self.resize(600, 670)
@@ -110,7 +114,7 @@ class Window(QMainWindow):
         self.submit(backend.discover, self.discovered)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
-        self.timer.start(1000)
+        self.timer.start(250)
         self.gamepad = Gamepad()
         self.previous_buttons = 0
         self.previous_triggers = (False, False)
@@ -154,9 +158,13 @@ class Window(QMainWindow):
         self.enable_actions()
 
     def enable_actions(self):
-        button = self.renderer.named.get("LosslessScalingSaveSettingsButton")
-        if button:
-            button.setEnabled(bool(self.snapshot["capabilities"].get("LosslessScalingSaveAndRestart")))
+        for name,key in (("LosslessScalingSaveSettingsButton","LosslessScalingSaveAndRestart"),
+                         ("LaunchLosslessScalingButton","LosslessScalingLaunch"),
+                         ("ShowLosslessScalingWindowButton","LosslessScalingBringToForeground"),
+                         ("LosslessScalingCreateProfileButton","LosslessScalingCreateProfile"),
+                         ("LosslessScalingResetProfileButton","LosslessScalingResetProfile")):
+            button = self.renderer.named.get(name)
+            if button: button.setEnabled(bool(self.snapshot["capabilities"].get(key)))
 
     def select(self, key):
         if key not in self.page_widgets:
@@ -165,6 +173,7 @@ class Window(QMainWindow):
             elif key == "Game":
                 widget = ProfilesPage(self.store, lambda: self.snapshot, self.i18n)
                 widget.apply_profile.connect(self.apply_profile)
+                widget.setting_changed.connect(self.apply_setting)
             else:
                 widget = self.renderer.render(self.reference["pages"][key], parent=self.pages)
                 self.renderer.update(self.snapshot)
@@ -178,6 +187,8 @@ class Window(QMainWindow):
         for index, button in enumerate(self.nav):
             button.setChecked(self.tab_ids[index] == key)
         self.current_tab = key
+        if key == "Game":
+            self.refresh_quick()
 
     def trigger_hint(self, name):
         hint = QWidget()
@@ -253,6 +264,9 @@ class Window(QMainWindow):
         show_brightness.toggled.connect(lambda value: self.quick_option("quick_brightness", value))
         row.addWidget(show_brightness)
         editor.addLayout(row)
+        shortcuts = self.i18n.bind(QPushButton(), "Tile shortcuts")
+        shortcuts.clicked.connect(self.edit_tile_shortcuts)
+        editor.addWidget(shortcuts)
         self.quick_editor.setVisible(False)
         layout.addWidget(self.quick_editor)
         brightness = self.i18n.bind(QLabel(), "Brightness")
@@ -270,6 +284,56 @@ class Window(QMainWindow):
         scroll.setWidget(body)
         self.refresh_quick()
         return scroll
+
+    def tile_shortcut(self, key):
+        definition = next((definition for _,definition in getattr(self,"tiles",[]) if definition[1] == key),None)
+        if definition is not None:self.cycle(definition)
+
+    def edit_tile_shortcuts(self):
+        from ..tile_hotkeys import COMBOS, validate
+        from PySide6.QtGui import QKeySequence
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.i18n.text("Tile shortcuts"))
+        layout = QVBoxLayout(dialog)
+        grid = QGridLayout()
+        fields = {}
+        saved = self.store.get("TileHotkeyConfig", {})
+        for index,(_,definition) in enumerate(self.tiles):
+            label,key = definition[:2]
+            grid.addWidget(self.i18n.bind(QLabel(),label),index,0)
+            keyboard = QKeySequenceEdit()
+            keyboard.setMaximumSequenceLength(1)
+            keyboard.setKeySequence(QKeySequence(saved.get(key,{}).get("keyboard","")))
+            grid.addWidget(keyboard,index,1)
+            gamepad = QComboBox()
+            gamepad.addItem(self.i18n.text("None"),"")
+            for combo in COMBOS:gamepad.addItem(combo,combo)
+            gamepad.setCurrentIndex(max(0,gamepad.findData(saved.get(key,{}).get("gamepad",""))))
+            grid.addWidget(gamepad,index,2)
+            fields[key] = (keyboard,gamepad)
+        layout.addLayout(grid)
+        buttons = QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel)
+        self.i18n.bind(buttons.button(QDialogButtonBox.Save),"Save")
+        self.i18n.bind(buttons.button(QDialogButtonBox.Cancel),"Cancel")
+        def save():
+            config = {key:{"keyboard":keyboard.keySequence().toString(QKeySequence.PortableText),"gamepad":gamepad.currentData()}
+                      for key,(keyboard,gamepad) in fields.items()}
+            try:
+                validate(config)
+                if self.hotkey_manager:self.hotkey_manager.set_bindings(config,self.tile_shortcut)
+                try:
+                    self.store.set("TileHotkeyConfig",config)
+                except Exception:
+                    if self.hotkey_manager:self.hotkey_manager.set_bindings(saved,self.tile_shortcut)
+                    raise
+                dialog.accept()
+            except (ValueError,OSError) as exc:
+                QMessageBox.warning(dialog,self.i18n.text("Shortcut could not be saved"),str(exc))
+        buttons.accepted.connect(save)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.exec()
+        dialog.deleteLater()
 
     def quick_option(self, key, value):
         self.store.set(key, value)
@@ -327,6 +391,11 @@ class Window(QMainWindow):
         self.refresh_quick()
 
     def refresh_quick(self):
+        profiles_page = self.page_widgets.get("Game")
+        if isinstance(profiles_page, ProfilesPage):
+            for box, key in ((profiles_page.automatic, "PerGameProfile"), (profiles_page.power_source, "PowerSourceProfile")):
+                with QSignalBlocker(box):
+                    box.setChecked(bool(self.snapshot["values"].get(key)))
         if not hasattr(self, "tiles"):
             return
         values, caps = self.snapshot["values"], self.snapshot["capabilities"]
@@ -358,9 +427,12 @@ class Window(QMainWindow):
 
         def finish(result):
             applied, snapshot = result
+            if not self.backend.demo:
+                self.profiles.remember(key, applied.value, telemetry()["ACConnected"])
             self.busy.discard(key)
             self.snapshot = snapshot
             self.renderer.update(snapshot)
+            self.enable_actions()
             self.refresh_quick()
             self.i18n.bind(self.status, "{key}: {value} · {message}", key=key, value=applied.value, message=applied.message)
 
@@ -370,10 +442,36 @@ class Window(QMainWindow):
 
         self.submit(operation, finish)
 
-    def apply_profile(self, settings):
+    def apply_profile(self, settings, plan=None):
         def operation():
             successes, failures = [], []
-            for key, value in settings.items():
+            pending = dict(settings)
+            if pending.get("LegionPerformanceMode", self.backend.values.get("LegionPerformanceMode")) != 255:
+                for field in ("TDP", "TDPBoostEnabled", "TDPBoostSPPT", "TDPBoostFPPT"):
+                    pending.pop(field, None)
+                if "StickyTDPEnabled" in pending:
+                    pending["StickyTDPEnabled"] = False
+            if not self.backend.demo and "Resolution" in pending and "RefreshRate" in pending:
+                resolution, refresh = pending.pop("Resolution"), pending.pop("RefreshRate")
+                try:
+                    actual = self.backend.display.set_mode(resolution, refresh)
+                    self.backend.values.update(actual)
+                    self.backend.values["RefreshRates"] = sorted({hz for w, h, hz in self.backend.display.modes()
+                                                                  if f"{w}x{h}" == actual["Resolution"]})
+                    for key in ("Resolution", "RefreshRate"):
+                        self.store.set(key, actual[key])
+                        successes.append(key)
+                except Exception as exc:
+                    failures.append(f"Display: {exc}")
+            def order(item):
+                key, value = item
+                if key == "LegionPerformanceMode":return 0
+                if key == "AutoTDPEnabled":return 7 if value else 1
+                if key == "AutoTDPMaxTDP":return 2 if value >= self.backend.values.get(key, 30) else 4
+                if key == "AutoTDPMinTDP":return 3
+                if key == "StickyTDPEnabled":return 6
+                return 5
+            for key, value in sorted(pending.items(), key=order):
                 try:
                     self.backend.apply(key, value)
                     successes.append(key)
@@ -383,6 +481,12 @@ class Window(QMainWindow):
 
         def finish(result):
             successes, failures, snapshot = result
+            if plan is not None:
+                self.profiles.complete(plan, not failures)
+                if not failures:
+                    self.backend.values["ActiveProfile"] = plan["name"]
+                    snapshot["values"]["ActiveProfile"] = plan["name"]
+                    self.i18n.bind(self.profile_label, plan["name"])
             self.snapshot = snapshot
             self.renderer.update(snapshot)
             self.refresh_quick()
@@ -391,28 +495,49 @@ class Window(QMainWindow):
         self.submit(operation, finish)
 
     def action(self, name):
-        if name == "LosslessScalingSaveSettingsButton":
-            self.apply_setting("LosslessScalingSaveAndRestart", True)
+        actions = {"LosslessScalingSaveSettingsButton":"LosslessScalingSaveAndRestart",
+                   "LaunchLosslessScalingButton":"LosslessScalingLaunch",
+                   "ShowLosslessScalingWindowButton":"LosslessScalingBringToForeground",
+                   "LosslessScalingResetProfileButton":"LosslessScalingResetProfile"}
+        if name == "LosslessScalingCreateProfileButton":
+            path,_ = QFileDialog.getOpenFileName(self,self.i18n.text("Select game executable"),"","Programs (*.exe)")
+            if not path: return
+            title,ok = QInputDialog.getText(self,self.i18n.text("Create profile"),self.i18n.text("Profile name"),text=Path(path).stem)
+            if ok and title.strip(): self.apply_setting("LosslessScalingCreateProfile",title.strip()+"<||>"+path)
+        elif name in actions:
+            self.apply_setting(actions[name], True)
         else:
             self.i18n.bind(self.status, "{name}: unavailable", name=name)
+
+    def maintenance_done(self, snapshot):
+        if snapshot == self.snapshot:
+            return
+        self.snapshot = snapshot
+        self.renderer.update(snapshot)
+        self.enable_actions()
+        self.refresh_quick()
+        if snapshot["values"].get("MaintenanceError"):
+            self.i18n.bind(self.status, "Failed: {error}", error=snapshot["values"]["MaintenanceError"])
 
     def tick(self):
         data = telemetry()
         battery = f"{data['BatteryLevel']}%" if data["BatteryLevel"] is not None else "--"
         self.i18n.bind(self.metrics, "CPU {cpu}%  ·  RAM {ram}%  ·  Battery {battery}", cpu=data["CPUUsage"], ram=data["MemoryUsage"], battery=battery)
-        if self.store.get("PerGameProfile", False) and not self.backend.demo:
-            path = foreground()
-            if path:
-                key = str(Path(path).resolve()).casefold()
-                if key != self.last_profile:
-                    self.last_profile = key
-                    profile = self.store.data["profiles"].get(key)
-                    if profile:
-                        self.i18n.bind(self.profile_label, "{name}", name=profile.get("name", Path(key).stem))
-                        self.apply_profile(profile["settings"])
+        if not self.backend.demo and not self.jobs and not self.busy and not self.exit_requested:
+            plan = self.profiles.plan(foreground(), data["ACConnected"], self.snapshot, own_path=sys.executable)
+            if plan:
+                self.apply_profile(plan["settings"], plan)
+            else:
+                self.submit(self.backend.maintain, self.maintenance_done)
 
     def poll_gamepad(self):
         state = self.gamepad.read()
+        from ..tile_hotkeys import fired
+        current = state.buttons if state else 0
+        actions = fired(self.store.get("TileHotkeyConfig", {}), self.shortcut_buttons, current)
+        self.shortcut_buttons = current
+        for key in actions:self.tile_shortcut(key)
+        if actions:return
         if not state or not self.isVisible() or not self.isActiveWindow():
             self.previous_buttons = 0
             self.previous_triggers = (False, False)

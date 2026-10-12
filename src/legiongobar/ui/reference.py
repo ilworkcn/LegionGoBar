@@ -13,7 +13,11 @@ from PySide6.QtWidgets import (QWidget, QLabel, QFrame, QGridLayout, QVBoxLayout
                                QPushButton, QCheckBox, QComboBox, QSlider, QLineEdit, QSpinBox,
                                QDoubleSpinBox, QScrollArea, QColorDialog, QAbstractButton, QSizePolicy)
 
-ALIASES = {"TDPModeComboBox": "LegionPerformanceMode", "LegionTouchpadToggle": "LegionTouchpadEnabled",
+ALIASES = {"OSDCustomizeLevelComboBox": "OSDCustomizeLevel", "OSDColumnsComboBox": "OSDColumns",
+           "OSDTextSizeComboBox": "OSDTextSize", "OSDTextColorPicker": "OSDTextColor", "OSDLabelColorPicker": "OSDLabelColor",
+           "OSDOpacitySlider": "OSDOpacity", "OSDCustomTagsTextBox": "OSDCustomTags", "Osd24HourClockToggle": "Osd24HourClock","AutoTDPToggle": "AutoTDPEnabled", "AutoTDPMinSlider": "AutoTDPMinTDP", "AutoTDPMaxSlider": "AutoTDPMaxTDP", "AutoTDPControllerModeComboBox": "AutoTDPControllerType","HibernateTimeoutACComboBox": "HibernateTimeoutAC", "HibernateTimeoutDCComboBox": "HibernateTimeoutDC", "ScreenSaverToggle": "ScreenSaverEnabled","HDRToggle": "HDREnabled",
+           "PowerButtonActionACComboBox": "PowerButtonActionAC", "PowerButtonActionDCComboBox": "PowerButtonActionDC",
+           "DisplayTimeoutACComboBox": "DisplayTimeoutAC", "DisplayTimeoutDCComboBox": "DisplayTimeoutDC","PowerSourceProfileToggle": "PowerSourceProfile","FPSLimitToggle": "FPSLimitEnabled", "StickyTDPToggle": "StickyTDPEnabled", "StickyTDPIntervalSlider": "StickyTDPInterval","TDPModeComboBox": "LegionPerformanceMode", "LegionTouchpadToggle": "LegionTouchpadEnabled",
            "TDPBoostToggle": "TDPBoostEnabled",
            "LegionJoystickAsMouseComboBox": "LegionJoystickAsMouseMode", "LegionControllerSleepComboBox": "Settings_LegionControllerSleepMinutes",
            "LegionBrightnessSlider": "LegionLightBrightness", "LegionSpeedSlider": "LegionLightSpeed",
@@ -128,7 +132,11 @@ class Renderer:
         children = [c for c in node["children"] if "." not in c["type"]]
         if "." in kind or kind in ("DataTemplate", "ItemsPanelTemplate", "ControlTemplate", "Style", "Setter", "RowDefinition", "ColumnDefinition", "Run", "LineBreak"):
             return None
-        if attrs.get("Name") == "AboutContent":
+        if attrs.get("Name") == "OSDItemsControl":
+            widget = QWidget(parent)
+            layout = QVBoxLayout(widget)
+            layout.setContentsMargins(0, 0, 0, 0)
+        elif attrs.get("Name") == "AboutContent":
             widget = QWidget(parent)
             layout = QVBoxLayout(widget)
             layout.setContentsMargins(0, 12, 0, 0)
@@ -177,6 +185,11 @@ class Renderer:
             foreground = attrs.get("Foreground", "")
             if re.fullmatch(r"#[a-fA-F0-9]{6}|White|Black", foreground):
                 widget.setStyleSheet(f"color: {foreground}; background: transparent;")
+        elif kind == "ToggleButton":
+            widget = self.i18n.bind(QPushButton(parent=parent), attrs.get("Content", ""))
+            widget.setCheckable(True)
+            widget.setChecked(attrs.get("IsChecked") == "True")
+            self.bind(widget,node,widget.toggled,widget.isChecked)
         elif kind == "ToggleSwitch":
             widget = Toggle(parent)
             widget.setChecked(attrs.get("IsOn") == "True")
@@ -206,6 +219,9 @@ class Renderer:
             widget.actionTriggered.connect(lambda action, w=widget, n=node: self.slider_action(w, n, action))
             if attrs.get("Name") == "TDPSlider":
                 widget.valueChanged.connect(lambda value: self.show_tdp_value(value))
+            elif attrs.get("Name") in ("FPSLimitSlider", "StickyTDPIntervalSlider"):
+                label, suffix = ("FPSLimitValue", " FPS") if attrs["Name"] == "FPSLimitSlider" else ("StickyTDPIntervalValue", "s")
+                widget.valueChanged.connect(lambda value, n=label, unit=suffix: self.preview_numeric_value(n, value, unit))
         elif kind == "ComboBox":
             widget = QComboBox(parent)
             for index, child in enumerate(children):
@@ -455,6 +471,11 @@ class Renderer:
                         chip.clicked.connect(lambda checked=False, k=key, c=code: self.remove_mapping_key(k,c))
                         layout.addWidget(chip)
 
+    def preview_numeric_value(self, name, value, suffix):
+        label = self.named.get(name)
+        if label:
+            self.i18n.bind(label, "{value}", value=f"{value}{suffix}")
+
     def show_tdp_value(self, value):
         label = self.named.get("TDPValueText")
         if label:
@@ -483,8 +504,65 @@ class Renderer:
         target = mapping.get(name, name.replace("ExpandButton", "Picker"))
         self.toggle_named([target])
 
+    def osd_item_change(self, item, checked=None, direction=0):
+        from ..osd import parse, ITEMS, DEFAULTS
+        values = self.osd_values
+        level = values.get("OSDCustomizeLevel", 1)
+        options = parse(values.get("OSDConfig", ""))
+        enabled = options.get(f"L{level}", ",".join(DEFAULTS[level])).split(",")
+        order = options.get(f"L{level}_Order", ",".join(ITEMS)).split(",")
+        order += [key for key in ITEMS if key not in order]
+        if checked is not None:
+            if checked and item not in enabled: enabled.append(item)
+            elif not checked and item in enabled: enabled.remove(item)
+        if direction:
+            index = order.index(item)
+            other = index + direction
+            if 0 <= other < len(order):order[index], order[other] = order[other], order[index]
+        options[f"L{level}"] = ",".join(enabled)
+        options[f"L{level}_Order"] = ",".join(order)
+        self.apply("OSDConfig", ";".join(f"{k}:{v}" for k,v in options.items()))
+
+    def update_osd_items(self, snapshot):
+        panel = self.named.get("OSDItemsControl")
+        if panel is None:return
+        from ..osd import parse, ITEMS, DEFAULTS
+        values = snapshot["values"]
+        level = values.get("OSDCustomizeLevel", 1)
+        config = values.get("OSDConfig", "")
+        supported = bool(snapshot["capabilities"].get("OSDConfig"))
+        signature = json.dumps((level, config, supported, self.i18n.language))
+        if panel.property("osd_signature") == signature:return
+        panel.setProperty("osd_signature", signature)
+        options = parse(config)
+        enabled = options.get(f"L{level}", ",".join(DEFAULTS[level])).split(",")
+        order = options.get(f"L{level}_Order", ",".join(ITEMS)).split(",")
+        order += [key for key in ITEMS if key not in order]
+        layout = panel.layout()
+        while layout.count():
+            old = layout.takeAt(0)
+            if old.widget():old.widget().deleteLater()
+        for item in order:
+            if item not in ITEMS:continue
+            row = QWidget(panel)
+            line = QHBoxLayout(row)
+            line.setContentsMargins(0,0,0,0)
+            box = self.i18n.bind(QCheckBox(), item)
+            box.setChecked(item in enabled)
+            box.toggled.connect(lambda checked, key=item:self.osd_item_change(key, checked))
+            line.addWidget(box,1)
+            for label,direction in (("↑",-1),("↓",1)):
+                button = QPushButton(label)
+                button.setFixedWidth(36)
+                button.clicked.connect(lambda checked=False,key=item,d=direction:self.osd_item_change(key,direction=d))
+                line.addWidget(button)
+            row.setEnabled(supported)
+            layout.addWidget(row)
+
     def update(self, snapshot):
         caps, values = snapshot["capabilities"], snapshot["values"]
+        self.osd_values = values
+        self.update_osd_items(snapshot)
         for widget, key, node in self.bound:
             if not key:
                 continue
@@ -495,11 +573,15 @@ class Renderer:
                 continue
             value = values[key]
             with QSignalBlocker(widget):
-                if isinstance(widget, (Toggle, QCheckBox)):
+                if isinstance(widget, (Toggle, QCheckBox)) or (isinstance(widget,QPushButton) and widget.isCheckable()):
                     widget.setChecked(value == "PERFORMANCE" if key == "LosslessScalingSize" else bool(value))
                 elif isinstance(widget, QSlider):
                     if not widget.isSliderDown():
-                        widget.setValue(round(float(value) * (widget.property("scale") or 1)))
+                        if key + "Range" in values:
+                            low, high, step = values[key + "Range"]
+                            widget.setRange(low, high)
+                            widget.setSingleStep(max(1, step))
+                        widget.setValue(60 if key == "FPSLimit" and value == 0 else round(float(value) * (widget.property("scale") or 1)))
                 elif isinstance(widget, QComboBox):
                     if key in ("Resolution", "RefreshRate"):
                         options = values.get("Resolutions" if key == "Resolution" else "RefreshRates", [])
@@ -516,14 +598,47 @@ class Renderer:
         section = self.named.get("TDPSliderSection")
         if section:
             section.setVisible(values.get("LegionPerformanceMode") == 255)
-        for name, key in (("CurrentTDPValueText", "CurrentTDP"), ("TDPValueText", "TDP"), ("ActiveProfileText", "ActiveProfile")):
+        for name, key in (("CurrentTDPValueText", "CurrentTDP"), ("TDPValueText", "TDP"), ("ActiveProfileText", "ActiveProfile"), ("LosslessScalingCurrentProfileText", "LosslessScalingCurrentProfile")):
             widget = self.named.get(name)
             if isinstance(widget, QLabel) and key in values:
                 if key == "TDP":
                     slider = self.named.get("TDPSlider")
                     self.show_tdp_value(slider.value() if slider and slider.isSliderDown() else values[key])
                 else:
-                    self.i18n.bind(widget, "{value}", value=f"{values[key]:g} W" if key == "CurrentTDP" else values[key])
+                    self.i18n.bind(widget, "{value}", value=f"{values[key]:g} W" if key == "CurrentTDP" and isinstance(values[key], (int, float)) else values[key])
+        for name, key, suffix in (("FPSLimitValue", "FPSLimit", " FPS"), ("StickyTDPIntervalValue", "StickyTDPInterval", "s")):
+            label = self.named.get(name)
+            if label and key in values:
+                slider = self.named.get(key + "Slider")
+                shown = slider.value() if slider and slider.isSliderDown() else values[key]
+                self.i18n.bind(label, "{value}", value=f"{shown}{suffix}")
+        caption = self.named.get("FPSLimitCaption")
+        if caption and "RTSSInstalled" in values:
+            caption.setVisible(not values.get("RTSSRunning", False))
+            self.i18n.bind(caption, "Start RTSS to enable FPS limit" if values["RTSSInstalled"] else "RTSS is not installed")
+        for name,key,suffix in (("AutoTDPTargetFPSValue","AutoTDPTargetFPS"," FPS"),
+                                ("AutoTDPMinValue","AutoTDPMinTDP"," W"), ("AutoTDPMaxValue","AutoTDPMaxTDP"," W"),
+                                ("AutoTDPCurrentFPSValue","AutoTDPCurrentFPS"," FPS")):
+            label = self.named.get(name)
+            if label and key in values:self.i18n.bind(label,"{value}",value=f"{values[key]}{suffix}")
+        label = self.named.get("AutoTDPMLStatusText")
+        if label:self.i18n.bind(label,values.get("AutoTDPMLStatus","PID controller; learning modes unavailable"))
+        for name in ("AutoTDPMinSlider", "AutoTDPMaxSlider"):
+            control = self.named.get(name)
+            if control:control.setMaximum(35)
+        for name in ("StickyTDPToggle", "StickyTDPIntervalSlider", "AutoTDPToggle"):
+            control = self.named.get(name)
+            if control:
+                control.setEnabled(bool(caps.get("AutoTDPEnabled" if name == "AutoTDPToggle" else "StickyTDPEnabled")) and values.get("LegionPerformanceMode") == 255)
+                if caps.get("StickyTDPEnabled") and values.get("LegionPerformanceMode") != 255:
+                    self.i18n.bind(control, "Select Custom TDP mode before enabling Auto TDP" if name == "AutoTDPToggle" else "Select Custom TDP mode before enabling Sticky TDP", "setToolTip")
+        status = self.named.get("LosslessScalingStatusText")
+        if status:
+            self.i18n.bind(status,"Running" if values.get("LosslessScalingRunning") else "Installed · stopped" if values.get("LosslessScalingInstalled") else "Not Installed")
+        for name, visible in (("LaunchLosslessScalingButton",values.get("LosslessScalingInstalled") and not values.get("LosslessScalingRunning")),
+                              ("ShowLosslessScalingWindowButton",values.get("LosslessScalingRunning"))):
+            button = self.named.get(name)
+            if button:button.setVisible(bool(visible))
         # 原界面中由开关驱动的可见性绑定。
         for widget, binding in self.pending_bindings:
             match = re.search(r"ElementName=(\w+), Path=IsOn", binding)

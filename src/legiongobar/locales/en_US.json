@@ -7,5 +7,13 @@
   "Hide the controller from games and the OS (GoTweaks features keep working). Note: also disables Desktop Controls and the stock Legion/Page shortcuts while on.": "Hide the controller from games and the OS (LegionGoBar features keep working). Note: also disables Desktop Controls and the stock Legion/Page shortcuts while on.",
   "Kill GoTweaks": "Kill LegionGoBar",
   "Look for new GoTweaks releases when the widget opens": "Look for new LegionGoBar releases when the widget opens",
-  "Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. When this is off, GoTweaks will not apply Default Game Profiles at all. It is on by default on devices with native profile support (Legion Go Z1/Z2 Extreme); on other AMD devices, turning it on uses Z1 Extreme (OMNI) profiles as a fallback.": "Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. When this is off, LegionGoBar will not apply Default Game Profiles at all. It is on by default on devices with native profile support (Legion Go Z1/Z2 Extreme); on other AMD devices, turning it on uses Z1 Extreme (OMNI) profiles as a fallback."
+  "Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. When this is off, GoTweaks will not apply Default Game Profiles at all. It is on by default on devices with native profile support (Legion Go Z1/Z2 Extreme); on other AMD devices, turning it on uses Z1 Extreme (OMNI) profiles as a fallback.": "Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. When this is off, LegionGoBar will not apply Default Game Profiles at all. It is on by default on devices with native profile support (Legion Go Z1/Z2 Extreme); on other AMD devices, turning it on uses Z1 Extreme (OMNI) profiles as a fallback.",
+  "Select game executable": "Select game executable",
+  "Create profile": "Create profile",
+  "Profile name": "Profile name",
+  "Lossless Scaling action completed": "Lossless Scaling action completed",
+  "Scaling hotkey sent; state follows commands from this app": "Scaling hotkey sent; state follows commands from this app",
+  "Running": "Running",
+  "Installed · stopped": "Installed · stopped",
+  "Scale": "Scale"
 }

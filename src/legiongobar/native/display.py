@@ -23,6 +23,32 @@ class WindowsDisplay:
         mode = self.api.EnumDisplaySettings(None, self.con.ENUM_CURRENT_SETTINGS)
         return {"Resolution": f"{mode.PelsWidth}x{mode.PelsHeight}", "RefreshRate": mode.DisplayFrequency, "DisplayOrientation": mode.DisplayOrientation}
 
+    def set_mode(self, resolution, refresh_rate):
+        width, height = map(int, resolution.split("x"))
+        if type(refresh_rate) is not int or (width, height, refresh_rate) not in self.modes():
+            raise ValueError("Display mode not advertised by the driver")
+        previous = self.api.EnumDisplaySettings(None, self.con.ENUM_CURRENT_SETTINGS)
+        mode = self.api.EnumDisplaySettings(None, self.con.ENUM_CURRENT_SETTINGS)
+        mode.PelsWidth, mode.PelsHeight, mode.DisplayFrequency = width, height, refresh_rate
+        mode.Fields = self.con.DM_PELSWIDTH | self.con.DM_PELSHEIGHT | self.con.DM_DISPLAYFREQUENCY
+        result = self.api.ChangeDisplaySettingsEx(None, mode, self.con.CDS_TEST)
+        if result != self.con.DISP_CHANGE_SUCCESSFUL:
+            raise OSError(f"Display mode test failed: {result}")
+        try:
+            result = self.api.ChangeDisplaySettingsEx(None, mode, 0)
+            if result != self.con.DISP_CHANGE_SUCCESSFUL:
+                raise OSError(f"Display mode apply failed: {result}")
+            actual = self.current()
+            if actual["Resolution"] != resolution or actual["RefreshRate"] != refresh_rate:
+                raise OSError("Display mode readback mismatch")
+            return actual
+        except Exception as exc:
+            # 配对切换失败时恢复原显示模式，避免分辨率与刷新率停在中间状态。
+            restored = self.api.ChangeDisplaySettingsEx(None, previous, 0)
+            if restored != self.con.DISP_CHANGE_SUCCESSFUL:
+                raise OSError(f"{exc}; display restore failed: {restored}") from exc
+            raise
+
     def set(self, key, value):
         mode = self.api.EnumDisplaySettings(None, self.con.ENUM_CURRENT_SETTINGS)
         if key == "Resolution":

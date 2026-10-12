@@ -15,7 +15,7 @@ def telemetry():
             "ACConnected": battery.power_plugged if battery else True}
 
 
-def foreground():
+def foreground(include_self=False):
     if os.name != "nt":
         return None
     user = ctypes.WinDLL("user32", use_last_error=True)
@@ -24,7 +24,7 @@ def foreground():
     hwnd = user.GetForegroundWindow()
     pid = wintypes.DWORD()
     user.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-    if not pid.value or pid.value == os.getpid():
+    if not pid.value or (pid.value == os.getpid() and not include_self):
         return None
     try:
         return psutil.Process(pid.value).exe()

@@ -10,9 +10,9 @@
   "counts": {
     "reference_controls": 535,
     "reference_functions": 375,
-    "adapter_functions": 95,
-    "pending_or_local_presentation": 421,
-    "adapter_connected": 114
+    "adapter_functions": 123,
+    "pending_or_local_presentation": 393,
+    "adapter_connected": 142
   },
   "controls": [
     {
@@ -420,8 +420,8 @@
       "page": "Performance",
       "type": "ToggleSwitch",
       "source_line": 1123,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "PowerSourceProfile",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -431,7 +431,7 @@
       "type": "ComboBox",
       "source_line": 1149,
       "function": "OSD",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -441,7 +441,7 @@
       "type": "Slider",
       "source_line": 1162,
       "function": "OSD",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -450,8 +450,8 @@
       "page": "Performance",
       "type": "ToggleSwitch",
       "source_line": 1195,
-      "function": "FPSLimit",
-      "interaction": "pending_or_local_presentation",
+      "function": "FPSLimitEnabled",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -461,7 +461,7 @@
       "type": "Slider",
       "source_line": 1200,
       "function": "FPSLimit",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -520,8 +520,8 @@
       "page": "Performance",
       "type": "ToggleSwitch",
       "source_line": 1391,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "AutoTDPEnabled",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -531,7 +531,7 @@
       "type": "Slider",
       "source_line": 1402,
       "function": "AutoTDPTargetFPS",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -540,8 +540,8 @@
       "page": "Performance",
       "type": "Slider",
       "source_line": 1411,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "AutoTDPMinTDP",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -550,8 +550,8 @@
       "page": "Performance",
       "type": "Slider",
       "source_line": 1416,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "AutoTDPMaxTDP",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -561,7 +561,7 @@
       "type": "CheckBox",
       "source_line": 1419,
       "function": "AutoTDPPauseWhenUnfocused",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -580,7 +580,7 @@
       "page": "Performance",
       "type": "ComboBox",
       "source_line": 1441,
-      "function": null,
+      "function": "AutoTDPControllerType",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -600,8 +600,8 @@
       "page": "Performance",
       "type": "ToggleSwitch",
       "source_line": 1487,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "StickyTDPEnabled",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -610,8 +610,8 @@
       "page": "Performance",
       "type": "Slider",
       "source_line": 1498,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "StickyTDPInterval",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -840,8 +840,8 @@
       "page": "AMD",
       "type": "ToggleSwitch",
       "source_line": 2719,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "HDREnabled",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -881,7 +881,7 @@
       "type": "Slider",
       "source_line": 2820,
       "function": "AMDDisplayBrightness",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -891,7 +891,7 @@
       "type": "Slider",
       "source_line": 2826,
       "function": "AMDDisplayContrast",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -901,7 +901,7 @@
       "type": "Slider",
       "source_line": 2832,
       "function": "AMDDisplaySaturation",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -911,7 +911,7 @@
       "type": "Slider",
       "source_line": 2838,
       "function": "AMDDisplayTemperature",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1011,7 +1011,7 @@
       "type": "Slider",
       "source_line": 2982,
       "function": "AMDRadeonBoostResolution",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1260,7 +1260,7 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 3496,
-      "function": null,
+      "function": "OSDCustomizeLevel",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -1270,7 +1270,7 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 3526,
-      "function": null,
+      "function": "OSDColumns",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -1280,7 +1280,7 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 3554,
-      "function": null,
+      "function": "OSDTextSize",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -1310,7 +1310,7 @@
       "page": "System",
       "type": "ColorPicker",
       "source_line": 3608,
-      "function": null,
+      "function": "OSDTextColor",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -1340,7 +1340,7 @@
       "page": "System",
       "type": "ColorPicker",
       "source_line": 3658,
-      "function": null,
+      "function": "OSDLabelColor",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -1350,7 +1350,7 @@
       "page": "System",
       "type": "Slider",
       "source_line": 3687,
-      "function": null,
+      "function": "OSDOpacity",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -1380,7 +1380,7 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 3738,
-      "function": null,
+      "function": "Osd24HourClock",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -1420,7 +1420,7 @@
       "page": "System",
       "type": "TextBox",
       "source_line": 3806,
-      "function": null,
+      "function": "OSDCustomTags",
       "interaction": "pending_or_local_presentation",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
@@ -2800,8 +2800,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5891,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "PowerButtonActionAC",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2810,8 +2810,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5908,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "PowerButtonActionDC",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2820,8 +2820,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5929,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "DisplayTimeoutAC",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2830,8 +2830,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5953,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "DisplayTimeoutDC",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2840,8 +2840,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5983,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "HibernateTimeoutAC",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2850,8 +2850,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 6004,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "HibernateTimeoutDC",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -3120,8 +3120,8 @@
       "page": "Scaling",
       "type": "Button",
       "source_line": 6528,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "LosslessScalingBringToForeground",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -3130,8 +3130,8 @@
       "page": "Scaling",
       "type": "Button",
       "source_line": 6534,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "LosslessScalingLaunch",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -3140,8 +3140,8 @@
       "page": "Scaling",
       "type": "Button",
       "source_line": 6564,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "LosslessScalingCreateProfile",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -3160,8 +3160,8 @@
       "page": "Scaling",
       "type": "Button",
       "source_line": 6602,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "LosslessScalingResetProfile",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -5376,7 +5376,7 @@
     {
       "name": "OSD",
       "wire_id": 1,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5484,7 +5484,7 @@
     {
       "name": "HDREnabled",
       "wire_id": 19,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5586,7 +5586,7 @@
     {
       "name": "AMDRadeonBoostResolution",
       "wire_id": 36,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5640,7 +5640,7 @@
     {
       "name": "AMDDisplayBrightness",
       "wire_id": 45,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5652,7 +5652,7 @@
     {
       "name": "AMDDisplayContrast",
       "wire_id": 47,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5664,7 +5664,7 @@
     {
       "name": "AMDDisplaySaturation",
       "wire_id": 49,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5676,7 +5676,7 @@
     {
       "name": "AMDDisplayTemperature",
       "wire_id": 51,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5700,7 +5700,7 @@
     {
       "name": "LosslessScalingEnabled",
       "wire_id": 55,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -5820,25 +5820,25 @@
     {
       "name": "LosslessScalingCreateProfile",
       "wire_id": 75,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "LosslessScalingBringToForeground",
       "wire_id": 76,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "LosslessScalingLaunch",
       "wire_id": 77,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "LosslessScalingResetProfile",
       "wire_id": 78,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6552,13 +6552,13 @@
     {
       "name": "AutoTDPEnabled",
       "wire_id": 197,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "AutoTDPTargetFPS",
       "wire_id": 198,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6570,13 +6570,13 @@
     {
       "name": "AutoTDPMinTDP",
       "wire_id": 200,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "AutoTDPMaxTDP",
       "wire_id": 201,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6600,7 +6600,7 @@
     {
       "name": "AutoTDPPauseWhenUnfocused",
       "wire_id": 205,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6618,7 +6618,7 @@
     {
       "name": "OSDConfig",
       "wire_id": 208,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6630,7 +6630,7 @@
     {
       "name": "FPSLimit",
       "wire_id": 210,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6834,7 +6834,7 @@
     {
       "name": "ProfileSaveFlags",
       "wire_id": 244,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6912,7 +6912,7 @@
     {
       "name": "ScreenSaverEnabled",
       "wire_id": 257,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7494,7 +7494,7 @@
     {
       "name": "TileHotkeyConfig",
       "wire_id": 354,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7530,37 +7530,37 @@
     {
       "name": "SystemPowerButtonActionAC",
       "wire_id": 360,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "SystemPowerButtonActionDC",
       "wire_id": 361,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "SystemDisplayTimeoutAC",
       "wire_id": 362,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "SystemDisplayTimeoutDC",
       "wire_id": 363,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "SystemHibernateTimeoutAC",
       "wire_id": 364,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "SystemHibernateTimeoutDC",
       "wire_id": 365,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {

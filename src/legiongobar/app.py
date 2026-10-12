@@ -37,7 +37,19 @@ def main(argv=None):
     backend = Backend(store, args.demo)
     if args.diagnose or args.diagnostic_output:
         try:
-            result = json.dumps(backend.discover(), ensure_ascii=False, indent=2)
+            snapshot = backend.discover()
+            # 仅在本进程缓冲区验证原子操作依赖，不打开 RTSS 或写入设备。
+            try:
+                import atomics
+                buffer = bytearray(4)
+                with atomics.atomicview(buffer=buffer, atype=atomics.INT) as atomic:
+                    if not atomic.cmpxchg_strong(expected=0, desired=1).success:
+                        raise RuntimeError("Atomic runtime verification failed")
+                    atomic.store(0)
+                snapshot["runtime_checks"] = {"atomic_shared_buffer": True}
+            except Exception as exc:
+                snapshot["runtime_checks"] = {"atomic_shared_buffer": False, "error": str(exc)}
+            result = json.dumps(snapshot, ensure_ascii=False, indent=2)
             if args.diagnostic_output:
                 args.diagnostic_output.parent.mkdir(parents=True, exist_ok=True)
                 args.diagnostic_output.write_text(result, encoding="utf-8")
@@ -84,6 +96,12 @@ def main(argv=None):
         server.newConnection.connect(connected)
     from .ui.hotkey import Hotkey
     hotkey = Hotkey(app, window.reveal) if not args.demo else None
+    window.hotkey_manager = hotkey
+    if hotkey:
+        try:
+            hotkey.set_bindings(store.get("TileHotkeyConfig", {}), window.tile_shortcut)
+        except (ValueError, OSError) as exc:
+            window.i18n.bind(window.status, "Failed: {error}", error=str(exc))
     errors = []
 
     def capture():

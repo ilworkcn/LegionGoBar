@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from .native import legion_hid as hid
 from .native.system import telemetry
 from .native.wmi import FEATURES
+from .native.power import POWER_FIELDS
+from .osd import UI_FIELDS as OSD_UI_FIELDS
+from .autotdp import AutoTdp, DEFAULTS as AUTO_DEFAULTS
 
 HID_DEFAULTS = {"LegionLightMode": 0, "LegionLightColor": "#00ADEF", "LegionLightBrightness": 100, "LegionLightSpeed": 50,
                 "LegionGyroMappingType": 0, "LegionGyroSensitivityX": 50, "LegionGyroSensitivityY": 50,
@@ -20,7 +24,9 @@ HID_KEYS = set(HID_DEFAULTS) | {"LegionTouchpadEnabled", "LegionTouchpadVibratio
                                "LegionGyroTarget", "LegionGyroDeadzone", "Settings_LegionControllerSleepMinutes"}
 HID_KEYS |= {f"LegionButton{name}" for name in hid.BUTTONS}
 TDP_KEYS = {"TDP", "TDPBoostEnabled", "TDPBoostSPPT", "TDPBoostFPPT"}
-LOCAL_KEYS = {"PerGameProfile"}
+LOCAL_KEYS = {"PerGameProfile", "PowerSourceProfile", "ScreenSaverEnabled", "HibernateTimeoutAC", "HibernateTimeoutDC"}
+SYSTEM_ALIASES = {"System" + name: name for name in ("PowerButtonActionAC", "PowerButtonActionDC", "DisplayTimeoutAC", "DisplayTimeoutDC", "HibernateTimeoutAC", "HibernateTimeoutDC")}
+PERFORMANCE_KEYS = {"FPSLimit", "FPSLimitEnabled", "StickyTDPEnabled", "StickyTDPInterval"}
 
 
 @dataclass(frozen=True)
@@ -38,11 +44,35 @@ class Backend:
         self.capabilities.update({key: True for key in LOCAL_KEYS})
         self.values.update({key: self.store.get(key, False) for key in LOCAL_KEYS})
         self.wmi = self.controller = self.power = self.display = self.amd = self.scaling = None
+        self.rtss = None
+        self.rtss_memory = None
+        self.values.update({"OSD": self.store.get("OSD", 0), "OSDConfig": self.store.get("OSDConfig", "")})
+        self.hdr = None
+        self.idle = None
+        self.next_idle = 0.0
+        self.next_scaling = 0.0
+        for key in ("HibernateTimeoutAC", "HibernateTimeoutDC"):
+            self.values[key] = self.store.get(key, 0)
+        self.next_sticky = self.next_rtss = 0.0
+        self.auto = AutoTdp()
+        self.auto_active = False
+        self.next_auto = 0.0
+        self.auto_game = None
+        self.values.update({key: self.store.get(key, value) for key, value in AUTO_DEFAULTS.items()})
+        self.values["AutoTDPEnabled"] = False
+        self.values.update({"StickyTDPEnabled": False, "StickyTDPInterval": self.store.get("StickyTDPInterval", 5),
+                            "FPSLimit": 0, "FPSLimitEnabled": False})
 
     def discover(self):
         if self.demo:
             self.capabilities = {key: True for key in HID_KEYS | set(FEATURES) | {"CPUBoost", "CPUEPP", "LegionPerformanceMode", "PanelBrightness", "Resolution", "RefreshRate", "OnScreenKeyboard"}}
-            self.capabilities.update({key: True for key in TDP_KEYS})
+            self.capabilities.update({key: True for key in TDP_KEYS | PERFORMANCE_KEYS | LOCAL_KEYS | set(AUTO_DEFAULTS) | {"OSD", "OSDConfig", "HDREnabled"}})
+            from .native.scaling import DEFAULTS as LS_DEFAULTS, ACTION_KEYS as LS_ACTIONS
+            self.capabilities.update({key: True for key in LS_ACTIONS | {"LosslessScalingEnabled"}})
+            self.capabilities.update({"LosslessScaling"+key:True for key in LS_DEFAULTS})
+            self.values.update({"LosslessScaling"+key:value for key,value in LS_DEFAULTS.items()})
+            self.values.update({"LosslessScalingCurrentProfile":"Default", "LosslessScalingEnabled":False, "LosslessScalingInstalled":True, "LosslessScalingRunning":False})
+            self.capabilities["AutoTDPControllerType"] = False
             self.values.update(HID_DEFAULTS)
             self.values.update({"DeviceDisplayName": "Legion Go · Preview", "LegionPerformanceMode": 2, "CPUBoost": False, "CPUEPP": 30,
                                 "TDP": 15, "PanelBrightness": 70, "Resolution": "2560x1600", "RefreshRate": 144,
@@ -103,6 +133,8 @@ class Backend:
         if all(self.capabilities.get(key) for key in ("LegionCustomTDPSlow", "LegionCustomTDPFast", "LegionCustomTDPPeak", "LegionPerformanceMode")):
             self.capabilities.update({key: True for key in TDP_KEYS})
             self.values["TDP"] = self.values["LegionCustomTDPSlow"]
+            self.capabilities.update({"StickyTDPEnabled": True, "StickyTDPInterval": True})
+            self.values["StickyTDPEnabled"] = self.store.get("StickyTDPEnabled", False) and self.values.get("LegionPerformanceMode") == 255
             for key, default in (("TDPBoostEnabled", False), ("TDPBoostSPPT", 1), ("TDPBoostFPPT", 3)):
                 self.values[key] = self.store.get(key, default)
         try:
@@ -125,6 +157,13 @@ class Backend:
             self.capabilities.update({"Resolution": True, "RefreshRate": True})
         except Exception as exc:
             errors.append(str(exc))
+        try:
+            from .native.hdr import Hdr
+            self.hdr = Hdr()
+            self.values.update(self.hdr.status())
+            self.capabilities["HDREnabled"] = self.values["HDRSupported"]
+        except Exception as exc:
+            errors.append(f"HDR: {exc}")
         self.capabilities["OnScreenKeyboard"] = True
         try:
             from .native.adlx import Adlx
@@ -136,24 +175,190 @@ class Backend:
             errors.append(f"AMD: {exc}")
         from .native.scaling import Scaling
         self.scaling = Scaling()
-        if self.scaling.path.exists():
-            try:
-                caps, values = self.scaling.discover()
-                self.capabilities.update(caps)
-                self.values.update(values)
-            except Exception as exc:
-                errors.append(f"Lossless Scaling: {exc}")
+        try:
+            caps, values = self.scaling.discover()
+            self.capabilities.update(caps)
+            self.values.update(values)
+        except Exception as exc:
+            errors.append(f"Lossless Scaling: {exc}")
+        try:
+            self.refresh_rtss()
+        except Exception as exc:
+            errors.append(f"RTSS: {exc}")
+        try:
+            from .native.idle import IdleMonitor
+            self.idle = IdleMonitor()
+            self.capabilities.update({"HibernateTimeoutAC": self.idle.available(), "HibernateTimeoutDC": self.idle.available()})
+        except Exception as exc:
+            self.capabilities.update({"HibernateTimeoutAC": False, "HibernateTimeoutDC": False, "ScreenSaverEnabled": False})
+            errors.append(f"Idle: {exc}")
         self.values["DiscoveryErrors"] = errors
         return self.snapshot()
 
+    def refresh_rtss(self):
+        if self.rtss is None:
+            from .native.rtss import Rtss
+            self.rtss = Rtss()
+        self.capabilities.update({"FPSLimit": False, "FPSLimitEnabled": False})
+        value = self.rtss.discover()
+        self.capabilities.update({"OSD": False, "OSDConfig": False})
+        self.values.update({"RTSSInstalled": self.rtss.installed, "RTSSRunning": self.rtss.running})
+        if value is not None:
+            self.capabilities.update({"FPSLimit": True, "FPSLimitEnabled": True})
+            self.values.update({"FPSLimit": value, "FPSLimitEnabled": value > 0})
+            try:
+                if self.rtss_memory is None:
+                    from .native.rtss_memory import RtssMemory
+                    self.rtss_memory = RtssMemory()
+                with self.rtss_memory.mapped() as shared:
+                    usable = shared.version >= 0x2000e
+                self.capabilities.update({"OSD": usable, "OSDConfig": usable})
+            except (OSError, ValueError):
+                pass
+
+    def maintain(self, now=None):
+        """在串行工作线程检查外部进程及 TDP，避免阻塞界面或重复排队。"""
+        if self.demo:
+            return self.snapshot()
+        now = time.monotonic() if now is None else now
+        errors = []
+        if self.scaling and now >= self.next_scaling:
+            self.next_scaling = now + 2
+            try:
+                known = set(self.store.data["profiles"]) | {entry["name"] for entry in self.values.get("FrameSamples", [])}
+                path = self.scaling.remember_foreground(known)
+                changed = self.scaling.select_game(path)
+                if changed or not self.scaling.pending:
+                    caps, values = self.scaling.discover()
+                    self.capabilities.update(caps)
+                    self.values.update(values)
+            except Exception as exc:
+                self.next_scaling = now + 15
+                errors.append(f"Lossless Scaling: {exc}")
+        if now >= self.next_rtss:
+            self.next_rtss = now + 5
+            try:
+                self.refresh_rtss()
+            except Exception as exc:
+                errors.append(str(exc))
+        if not self.auto_active and self.values.get("StickyTDPEnabled") and self.supported("TDP") and now >= self.next_sticky:
+            self.next_sticky = now + self.values["StickyTDPInterval"]
+            try:
+                mode = self.wmi.get("LegionPerformanceMode")
+                self.values["LegionPerformanceMode"] = mode
+                if mode != 255:
+                    self.values["StickyTDPEnabled"] = False
+                else:
+                    keys = ("LegionCustomTDPSlow", "LegionCustomTDPFast", "LegionCustomTDPPeak")
+                    actual = tuple(self.wmi.get(key) for key in keys)
+                    base = self.values["TDP"]
+                    expected = (base, base + (self.values.get("TDPBoostSPPT", 1) if self.values.get("TDPBoostEnabled") else 0),
+                                base + (self.values.get("TDPBoostFPPT", 3) if self.values.get("TDPBoostEnabled") else 0))
+                    if actual != expected:
+                        # 直接重写目标值，无需原 helper 的临时降功率再升回技巧。
+                        self.values.update(self.wmi.set_tdp(*expected))
+                        actual = tuple(self.values[key] for key in keys)
+                        if actual != expected:
+                            raise OSError("Sticky TDP readback mismatch")
+                    self.values["CurrentTDP"] = f"SPL:{actual[0]}W SPPT:{actual[1]}W FPPT:{actual[2]}W"
+            except Exception as exc:
+                self.next_sticky = now + max(15, self.values["StickyTDPInterval"])
+                errors.append(str(exc))
+        if self.rtss_memory and self.values.get("RTSSRunning"):
+            try:
+                self.values["FrameSamples"] = self.rtss_memory.samples()
+                if self.values.get("OSD") and self.supported("OSD"):
+                    from .osd import render
+                    self.rtss_memory.publish(render(self.values["OSD"], self.values["OSDConfig"], telemetry(), self.values))
+            except BlockingIOError:
+                pass
+            except (OSError, ValueError) as exc:
+                self.values["FrameSamples"] = []
+                errors.append(str(exc))
+        auto_available = self.supported("TDP") and bool(self.rtss_memory) and self.values.get("RTSSRunning", False)
+        self.capabilities.update({key: bool(auto_available) for key in AUTO_DEFAULTS if key != "AutoTDPControllerType"})
+        try:
+            if now >= self.next_auto:
+                self.maintain_auto(now)
+        except Exception as exc:
+            self.values["AutoTDPEnabled"] = False
+            self.next_auto = now + 15
+            errors.append(f"Auto TDP: {exc}")
+        if self.idle and now >= self.next_idle:
+            self.next_idle = now + 5
+            try:
+                from .native.system import foreground
+                from .profiles import canonical
+                path = foreground(include_self=True)
+                # 前台不可读时不触发休眠；避免把受保护游戏误认为桌面。
+                foreground_game = not path or canonical(path) in self.store.data["profiles"] or any(canonical(entry["name"]) == canonical(path) for entry in self.values.get("FrameSamples", []))
+                ac = telemetry()["ACConnected"]
+                minutes = self.values.get("HibernateTimeoutAC" if ac else "HibernateTimeoutDC", 0)
+                self.idle.update(ac, minutes, self.values.get("ScreenSaverEnabled", False), foreground_game)
+            except Exception as exc:
+                errors.append(str(exc))
+        self.values["MaintenanceError"] = "; ".join(errors)
+        return self.snapshot()
+
+    def auto_power(self, base):
+        fast = base + (self.values.get("TDPBoostSPPT", 1) if self.values.get("TDPBoostEnabled") else 0)
+        peak = base + (self.values.get("TDPBoostFPPT", 3) if self.values.get("TDPBoostEnabled") else 0)
+        actual = self.wmi.set_tdp(base, fast, peak)
+        self.values.update(actual)
+        self.values["CurrentTDP"] = f"SPL:{base}W SPPT:{fast}W FPPT:{peak}W"
+        self.values["AutoTDPCurrentPower"] = base
+
+    def maintain_auto(self, now):
+        if not self.values.get("AutoTDPEnabled") and not self.auto_active:
+            return
+        from .native.system import foreground
+        from .profiles import canonical
+        path = foreground()
+        samples = self.values.get("FrameSamples", []) if self.values.get("RTSSRunning") else []
+        # 只按完整路径识别，避免把另一个同名进程的帧率用于当前游戏。
+        sample = next((entry for entry in samples if path and canonical(entry["name"]) == canonical(path)), None)
+        if not path or not self.values.get("AutoTDPPauseWhenUnfocused", True):
+            sample = sample or next((entry for entry in samples if entry["pid"] == self.auto_game), None)
+        mode = self.wmi.get("LegionPerformanceMode")
+        self.values["LegionPerformanceMode"] = mode
+        active = self.values.get("AutoTDPEnabled") and sample is not None and mode == 255
+        if not active:
+            if self.auto_active and mode == 255:
+                self.auto_power(self.values["TDP"])
+            self.auto_active = False
+            self.auto = AutoTdp()
+            self.values["AutoTDPMLStatus"] = "Paused" if self.values.get("AutoTDPEnabled") else "Off"
+            return
+        if sample["pid"] != self.auto_game:
+            if self.auto_active:
+                self.auto_power(self.values["TDP"])
+            self.auto = AutoTdp()
+            self.auto_game = sample["pid"]
+        current = self.wmi.get("LegionCustomTDPSlow")
+        self.values["AutoTDPCurrentFPS"] = round(sample["fps"])
+        wanted = self.auto.decide(now, sample["fps"], current, self.values["AutoTDPTargetFPS"],
+                                  self.values["AutoTDPMinTDP"], self.values["AutoTDPMaxTDP"])
+        self.auto_active = True
+        if wanted is not None and wanted != current:
+            self.auto_power(wanted)
+        self.values["AutoTDPMLStatus"] = self.auto.status
+
     def snapshot(self):
+        from .osd import editor_values
+        level = self.values.get("OSDCustomizeLevel", self.store.get("OSDCustomizeLevel", 1))
+        self.values["OSDCustomizeLevel"] = level
+        self.values.update(editor_values(self.values.get("OSDConfig", ""), level))
+        self.capabilities.update({key: self.supported("OSDConfig") for key in (*OSD_UI_FIELDS, "OSDCustomizeLevel")})
+        for alias,key in SYSTEM_ALIASES.items():
+            self.capabilities[alias] = self.supported(key)
+            if key in self.values:self.values[alias] = self.values[key]
         return {"capabilities": dict(self.capabilities), "values": dict(self.values), "demo": self.demo}
 
     def supported(self, key):
         return bool(self.capabilities.get(key))
 
     def validate(self, key, value):
-        ranges = {"CPUEPP": (0, 100), "PanelBrightness": (0, 100),
+        ranges = {"AutoTDPTargetFPS": (15, 144), "AutoTDPMinTDP": (4, 35), "AutoTDPMaxTDP": (4, 35), "OSD": (0, 3), "HibernateTimeoutAC": (0, 1440), "HibernateTimeoutDC": (0, 1440), "StickyTDPInterval": (3, 15), "FPSLimit": (0, 144), "CPUEPP": (0, 100), "PanelBrightness": (0, 100),
                   "TDP": (4, 35), "TDPBoostSPPT": (0, 10), "TDPBoostFPPT": (0, 15),
                   "PowerButtonActionAC": (0, 3), "PowerButtonActionDC": (0, 3), "OSPowerMode": (0, 2),
                   "DisplayTimeoutAC": (0, 86400), "DisplayTimeoutDC": (0, 86400),
@@ -167,6 +372,13 @@ class Backend:
                   "LegionLeftStickDeadzone": (0, 50), "LegionRightStickDeadzone": (0, 50),
                   "LegionLeftTriggerStart": (0, 100), "LegionLeftTriggerEnd": (0, 100),
                   "LegionRightTriggerStart": (0, 100), "LegionRightTriggerEnd": (0, 100), "Settings_LegionControllerSleepMinutes": (0, 60)}
+        if key in ("AutoTDPMinTDP", "AutoTDPMaxTDP"):
+            proposed = {**self.values, key: value}
+            if proposed["AutoTDPMinTDP"] > proposed["AutoTDPMaxTDP"]:
+                raise ValueError("Auto TDP minimum exceeds maximum")
+        if key == "OSDConfig":
+            from .osd import parse
+            parse(value)
         if key.startswith("LegionButton"):
             mapping = json.loads(value) if isinstance(value, str) else value
             if not isinstance(mapping, dict) or set(mapping) != {"type", "mappings"}:
@@ -176,7 +388,7 @@ class Backend:
             hid.bounded(value, *ranges[key])
         if key == "LegionPerformanceMode" and value not in (1, 2, 3, 255):
             raise ValueError("Invalid Lenovo performance mode")
-        boolean = {"PerGameProfile", "CPUBoost", "TDPBoostEnabled", "LegionFanFullSpeed", "LegionChargeLimit", "LegionTouchpadEnabled", "LegionNintendoLayout", "LegionGyroInvertX", "LegionGyroInvertY"}
+        boolean = {"AutoTDPEnabled", "AutoTDPPauseWhenUnfocused", "ScreenSaverEnabled", "HDREnabled", "PowerSourceProfile", "StickyTDPEnabled", "FPSLimitEnabled", "PerGameProfile", "CPUBoost", "TDPBoostEnabled", "LegionFanFullSpeed", "LegionChargeLimit", "LegionTouchpadEnabled", "LegionNintendoLayout", "LegionGyroInvertX", "LegionGyroInvertY"}
         if key in boolean and not isinstance(value, bool):
             raise ValueError(f"{key} requires a boolean")
         if key == "LegionFanCurveData":
@@ -187,14 +399,61 @@ class Backend:
                 raise ValueError("Fan curve is below the reference firmware minimum")
 
     def apply(self, key, value):
+        key = SYSTEM_ALIASES.get(key, key)
         if not self.supported(key):
             raise RuntimeError(f"{key} is unavailable or has not yet been ported")
         self.validate(key, value)
+        if key in ("StickyTDPEnabled", "AutoTDPEnabled") and value and self.values.get("LegionPerformanceMode") != 255:
+            raise RuntimeError("Select Custom TDP mode before enabling Sticky TDP")
         if self.demo:
+            if key in OSD_UI_FIELDS:
+                from .osd import edit
+                self.values["OSDConfig"] = edit(self.values["OSDConfig"], self.values.get("OSDCustomizeLevel", 1), key, value)
+            if key == "FPSLimitEnabled":
+                self.values["FPSLimit"] = 60 if value else 0
+            if key == "FPSLimit":
+                self.values["FPSLimitEnabled"] = value > 0
             self.values[key] = value
+            if key == "LegionPerformanceMode" and value != 255:
+                self.values["StickyTDPEnabled"] = False
             return Applied(value, False, "Preview only; no hardware write")
-        if key in LOCAL_KEYS:
+        if key == "OSDCustomizeLevel":
+            if type(value) is not int or value not in (1,2,3):
+                raise ValueError("Invalid OSD level")
             result = Applied(value, True, "Preference saved")
+        elif key in OSD_UI_FIELDS:
+            from .osd import edit
+            config = edit(self.values["OSDConfig"], self.store.get("OSDCustomizeLevel", 1), key, value)
+            self.apply("OSDConfig", config)
+            result = Applied(value, True, "Preference saved")
+        elif key in LOCAL_KEYS:
+            result = Applied(value, True, "Preference saved")
+        elif key in AUTO_DEFAULTS:
+            if key == "AutoTDPControllerType" and value != 0:
+                raise ValueError("This build supports the PID controller only")
+            if key == "AutoTDPEnabled" and value and self.values.get("LegionPerformanceMode") != 255:
+                raise ValueError("Select Custom TDP mode before enabling Auto TDP")
+            if key == "AutoTDPEnabled" and not value and self.auto_active:
+                if self.wmi.get("LegionPerformanceMode") == 255:
+                    self.auto_power(self.values["TDP"])
+                self.auto_active = False
+            self.auto = AutoTdp()
+            result = Applied(value, True, "Preference saved")
+        elif key in ("OSD", "OSDConfig"):
+            from .osd import render
+            proposed = {**self.values, key: value}
+            self.rtss_memory.publish(render(proposed["OSD"], proposed["OSDConfig"], telemetry(), proposed))
+            result = Applied(value, False, "RTSS OSD published")
+        elif key in ("StickyTDPEnabled", "StickyTDPInterval"):
+            self.next_sticky = time.monotonic() + (value if key == "StickyTDPInterval" else self.values["StickyTDPInterval"])
+            result = Applied(value, True, "Preference saved")
+        elif key in ("FPSLimit", "FPSLimitEnabled"):
+            target = (self.store.get("FPSLimitLast", 60) if value else 0) if key == "FPSLimitEnabled" else value
+            actual = self.rtss.set(target)
+            self.values.update({"FPSLimit": actual, "FPSLimitEnabled": actual > 0})
+            if actual > 0:
+                self.store.set("FPSLimitLast", actual)
+            result = Applied(actual > 0 if key == "FPSLimitEnabled" else actual)
         elif key in TDP_KEYS:
             if self.values.get("LegionPerformanceMode") != 255:
                 if key == "TDP":
@@ -218,14 +477,15 @@ class Backend:
             field = BOOST if key == "CPUBoost" else EPP
             actual = self.power.set(field, (2 if value else 0) if key == "CPUBoost" else value, ac)
             result = Applied(bool(actual) if key == "CPUBoost" else actual)
-        elif key in ("PowerButtonActionAC", "PowerButtonActionDC", "DisplayTimeoutAC", "DisplayTimeoutDC"):
-            from .native.power import POWER_FIELDS
+        elif key in POWER_FIELDS:
             field, subgroup, ac = POWER_FIELDS[key]
             result = Applied(self.power.set(field, value, ac, subgroup))
         elif key == "OSPowerMode":
             result = Applied(self.power.set_mode(value))
         elif key in FEATURES or key in ("LegionPerformanceMode", "PanelBrightness", "LegionFanCurveData"):
             result = Applied(self.wmi.set(key, value))
+        elif key == "HDREnabled":
+            result = Applied(self.hdr.set(value))
         elif key in ("Resolution", "RefreshRate"):
             result = Applied(self.display.set(key, value))
             self.values.update(self.display.current())
@@ -235,7 +495,21 @@ class Backend:
         elif key.startswith("LosslessScaling"):
             if key == "LosslessScalingSaveAndRestart":
                 return Applied(True, False, self.scaling.save_and_restart())
-            result = Applied(self.scaling.stage(key, value), False, "Staged; use Apply and Restart to save")
+            if key == "LosslessScalingEnabled":
+                result = Applied(self.scaling.set_enabled(value), False, "Scaling hotkey sent; state follows commands from this app")
+            elif key in ("LosslessScalingLaunch", "LosslessScalingBringToForeground", "LosslessScalingResetProfile", "LosslessScalingCreateProfile"):
+                if key.endswith("Launch"): self.scaling.launch()
+                elif key.endswith("BringToForeground"): self.scaling.bring_to_foreground()
+                elif key.endswith("ResetProfile"): self.values.update(self.scaling.reset())
+                else:
+                    name, path = value.split("<||>",1)
+                    self.scaling.create_profile(name,path)
+                caps, values = self.scaling.discover()
+                self.capabilities.update(caps)
+                self.values.update(values)
+                return Applied(False, False, "Lossless Scaling action completed")
+            else:
+                result = Applied(self.scaling.stage(key, value), False, "Staged; use Apply and Restart to save")
         elif key == "OnScreenKeyboard":
             from .native.system import open_keyboard
             open_keyboard()
@@ -258,6 +532,8 @@ class Backend:
             raise RuntimeError(f"No adapter for {key}")
         self.values[key] = result.value
         self.store.set(key, result.value)
+        if key == "LegionPerformanceMode":
+            self.values["StickyTDPEnabled"] = self.store.get("StickyTDPEnabled", False) and result.value == 255
         return result
 
     @staticmethod
@@ -304,5 +580,15 @@ class Backend:
         raise ValueError(f"No HID protocol implementation for {key}")
 
     def close(self):
+        if self.auto_active and self.wmi:
+            try:
+                if self.wmi.get("LegionPerformanceMode") == 255:
+                    self.auto_power(self.values["TDP"])
+            except Exception as exc:
+                self.values["MaintenanceError"] = f"Auto TDP restore: {exc}"
+            finally:
+                self.auto_active = False
+        if self.rtss_memory:
+            self.rtss_memory.close()
         if self.amd:
             self.amd.close()
