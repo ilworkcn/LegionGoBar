@@ -17,6 +17,7 @@ try {
         --add-data "$repoRoot/src/legiongobar/assets/theme.qss;legiongobar/assets" `
         --add-data "$repoRoot/src/legiongobar/assets/glyphs;legiongobar/assets/glyphs" `
         --add-data "$repoRoot/src/legiongobar/assets/ui;legiongobar/assets/ui" `
+        --add-data "$repoRoot/src/legiongobar/assets/fonts;legiongobar/assets/fonts" `
         --add-binary "$repoRoot/src/legiongobar/assets/native/ADLXCSharpBind.dll;legiongobar/assets/native" `
         --add-data "$repoRoot/reference;reference" --add-data "$repoRoot/THIRD-PARTY-NOTICES.md;." --add-data "$repoRoot/LICENSE;." "$repoRoot/tools/entrypoint.py"
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed with exit code $LASTEXITCODE" }

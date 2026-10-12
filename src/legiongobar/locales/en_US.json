@@ -1,1 +1,11 @@
-{}
+{
+  "Don't show the GoTweaks update banner on the Quick tab": "Don't show the LegionGoBar update banner on the Quick tab",
+  "Focus GoTweaks": "Focus LegionGoBar",
+  "GoTweaks feature - not a Windows setting, since Windows has no built-in idle-to-hibernate timer": "LegionGoBar feature - not a Windows setting, since Windows has no built-in idle-to-hibernate timer",
+  "GoTweaks needs a few free companion tools for its full feature set. Install what you plan to use — this tab disappears once everything is in place (or hide it under System → Customization).": "LegionGoBar needs a few free companion tools for its full feature set. Install what you plan to use — this tab disappears once everything is in place (or hide it under System → Customization).",
+  "GoTweaks update available": "LegionGoBar update available",
+  "Hide the controller from games and the OS (GoTweaks features keep working). Note: also disables Desktop Controls and the stock Legion/Page shortcuts while on.": "Hide the controller from games and the OS (LegionGoBar features keep working). Note: also disables Desktop Controls and the stock Legion/Page shortcuts while on.",
+  "Kill GoTweaks": "Kill LegionGoBar",
+  "Look for new GoTweaks releases when the widget opens": "Look for new LegionGoBar releases when the widget opens",
+  "Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. When this is off, GoTweaks will not apply Default Game Profiles at all. It is on by default on devices with native profile support (Legion Go Z1/Z2 Extreme); on other AMD devices, turning it on uses Z1 Extreme (OMNI) profiles as a fallback.": "Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. When this is off, LegionGoBar will not apply Default Game Profiles at all. It is on by default on devices with native profile support (Legion Go Z1/Z2 Extreme); on other AMD devices, turning it on uses Z1 Extreme (OMNI) profiles as a fallback."
+}

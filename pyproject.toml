@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legiongobar"
-version = "0.2.1"
+version = "0.2.5"
 description = "Standalone Python desktop controls for Lenovo Legion Go"
 authors = [{name = "SUNNYQUAN"}]
 requires-python = ">=3.11"
@@ -21,7 +21,7 @@ legiongobar = "legiongobar.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-legiongobar = ["locales/*.json", "assets/*.json", "assets/*.qss", "assets/glyphs/*.svg", "assets/ui/*.svg", "assets/native/*.dll"]
+legiongobar = ["locales/*.json", "assets/*.json", "assets/*.qss", "assets/glyphs/*.svg", "assets/ui/*.svg", "assets/native/*.dll", "assets/fonts/*.otf", "assets/fonts/*.txt"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

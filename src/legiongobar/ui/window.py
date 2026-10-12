@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from importlib.resources import files
 
-from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QEvent
+from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QEvent, QSize
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont, QKeyEvent
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
                                QGridLayout, QPushButton, QStackedWidget, QScrollArea, QSystemTrayIcon,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QVBox
 from .reference import Renderer, Toggle, load_reference
 from .profiles import ProfilesPage
 from .tile import Tile
+from .slider import Slider
 from .chrome import TitleBar
 from .theme import configure_font, stylesheet, FONT_FAMILY
 from ..i18n import I18n
@@ -69,8 +70,7 @@ class Window(QMainWindow):
             layout.addWidget(TitleBar(self, self.i18n))
         nav = QHBoxLayout()
         nav.setSpacing(2)
-        left = QLabel("LT")
-        left.setProperty("role", "caption")
+        left = self.trigger_hint("LT")
         nav.addWidget(left)
         self.nav = []
         # 开发电脑也可查看设备分页，控件可用性由实际设备能力决定。
@@ -84,8 +84,7 @@ class Window(QMainWindow):
             button.clicked.connect(lambda checked=False, key=tab["id"]: self.select(key))
             nav.addWidget(button)
             self.nav.append(button)
-        right = QLabel("RT")
-        right.setProperty("role", "caption")
+        right = self.trigger_hint("RT")
         nav.addWidget(right)
         layout.addLayout(nav)
         self.pages = QStackedWidget()
@@ -180,6 +179,22 @@ class Window(QMainWindow):
             button.setChecked(self.tab_ids[index] == key)
         self.current_tab = key
 
+    def trigger_hint(self, name):
+        hint = QWidget()
+        hint.setObjectName("trigger_" + name.lower())
+        hint.setFixedWidth(28)
+        column = QVBoxLayout(hint)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(2)
+        icon = QLabel(hint)
+        icon.setObjectName("trigger_icon_" + name.lower())
+        icon.setAlignment(Qt.AlignCenter)
+        path = str(files("legiongobar").joinpath("assets/glyphs/" + name.lower() + ".svg"))
+        icon.setPixmap(QIcon(path).pixmap(QSize(24, 24), self.devicePixelRatioF()))
+        icon.setFixedHeight(24)
+        column.addWidget(icon)
+        return hint
+
     def quick_page(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -191,6 +206,9 @@ class Window(QMainWindow):
         layout.addWidget(self.profile_label)
         layout.addWidget(self.i18n.bind(QLabel(), "Quick Settings"))
         grid = QGridLayout()
+        self.quick_grid = grid
+        self.quick_editing = False
+        self.quick_selected = None
         grid.setSpacing(10)
         self.tiles = []
         definitions = [("TDP Mode", "LegionPerformanceMode", [1, 2, 3, 255], ["Quiet", "Balanced", "Performance", "Custom"], "⚡"),
@@ -207,22 +225,106 @@ class Window(QMainWindow):
             button = Tile(glyphs[index])
             button.setProperty("role", "tile")
             button.setEnabled(False)
-            button.clicked.connect(lambda checked=False, d=definition: self.cycle(d))
+            button.clicked.connect(lambda checked=False, d=definition: self.quick_clicked(d))
             grid.addWidget(button, index // 3, index % 3)
             self.tiles.append((button, definition))
         layout.addLayout(grid)
+        customize = self.i18n.bind(QPushButton(), "Customize")
+        customize.setCheckable(True)
+        customize.toggled.connect(self.edit_quick)
+        layout.addWidget(customize)
+        self.quick_editor = QWidget(body)
+        editor = QVBoxLayout(self.quick_editor)
+        hint = self.i18n.bind(QLabel(), "Tap tile to select, tap another to swap. Tap same tile to toggle visibility.")
+        hint.setWordWrap(True)
+        editor.addWidget(hint)
+        row = QHBoxLayout()
+        row.addWidget(self.i18n.bind(QLabel(), "Columns:"))
+        columns = QComboBox()
+        columns.addItems(["3", "4", "5"])
+        columns.setCurrentText(str(self.store.get("quick_columns", 3)))
+        columns.currentTextChanged.connect(lambda value: self.quick_option("quick_columns", int(value)))
+        row.addWidget(columns)
+        editor.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(self.i18n.bind(QLabel(), "Show Brightness Slider"), 1)
+        show_brightness = Toggle()
+        show_brightness.setChecked(self.store.get("quick_brightness", True))
+        show_brightness.toggled.connect(lambda value: self.quick_option("quick_brightness", value))
+        row.addWidget(show_brightness)
+        editor.addLayout(row)
+        self.quick_editor.setVisible(False)
+        layout.addWidget(self.quick_editor)
         brightness = self.i18n.bind(QLabel(), "Brightness")
+        self.brightness_label = brightness
         brightness.setProperty("role", "title")
         layout.addWidget(brightness)
-        self.brightness = QSlider(Qt.Horizontal)
+        self.brightness = Slider(Qt.Horizontal)
         self.brightness.setRange(0, 100)
         self.brightness.setEnabled(False)
         self.brightness.sliderReleased.connect(lambda: self.apply_setting("PanelBrightness", self.brightness.value()))
         layout.addWidget(self.brightness)
+        self.brightness.actionTriggered.connect(lambda action: self.apply_setting("PanelBrightness", self.brightness.sliderPosition()) if not self.brightness.isSliderDown() else None)
+        self.layout_quick()
         layout.addStretch()
         scroll.setWidget(body)
         self.refresh_quick()
         return scroll
+
+    def quick_option(self, key, value):
+        self.store.set(key, value)
+        self.layout_quick()
+
+    def edit_quick(self, enabled):
+        self.quick_editing = enabled
+        self.quick_selected = None
+        self.quick_editor.setVisible(enabled)
+        self.layout_quick()
+        self.refresh_quick()
+
+    def layout_quick(self):
+        order = self.store.get("quick_order", [])
+        hidden = self.store.get("quick_hidden", [])
+        tiles = sorted(self.tiles, key=lambda tile: order.index(tile[1][1]) if tile[1][1] in order else len(order)+self.tiles.index(tile))
+        while self.quick_grid.count():
+            self.quick_grid.takeAt(0)
+        columns = max(3, min(5, int(self.store.get("quick_columns", 3))))
+        for column in range(5):
+            self.quick_grid.setColumnStretch(column, 1 if column < columns else 0)
+        index = 0
+        for button, definition in tiles:
+            visible = self.quick_editing or definition[1] not in hidden
+            button.setVisible(visible)
+            button.setProperty("edit_selected", definition[1] == self.quick_selected)
+            if visible:
+                self.quick_grid.addWidget(button, index // columns, index % columns)
+                index += 1
+            button.update()
+        for widget in (self.brightness_label, self.brightness):
+            widget.setVisible(self.store.get("quick_brightness", True))
+
+    def quick_clicked(self, definition):
+        if not self.quick_editing:
+            self.cycle(definition)
+            return
+        key = definition[1]
+        if self.quick_selected == key:
+            hidden = list(self.store.get("quick_hidden", []))
+            hidden.remove(key) if key in hidden else hidden.append(key)
+            self.store.set("quick_hidden", hidden)
+            self.quick_selected = None
+        elif self.quick_selected:
+            order = self.store.get("quick_order", [])
+            order = [k for k in order if k in {d[1] for _, d in self.tiles}]
+            order += [d[1] for _, d in self.tiles if d[1] not in order]
+            a, b = order.index(self.quick_selected), order.index(key)
+            order[a], order[b] = order[b], order[a]
+            self.store.set("quick_order", order)
+            self.quick_selected = None
+        else:
+            self.quick_selected = key
+        self.layout_quick()
+        self.refresh_quick()
 
     def refresh_quick(self):
         if not hasattr(self, "tiles"):
@@ -230,9 +332,12 @@ class Window(QMainWindow):
         values, caps = self.snapshot["values"], self.snapshot["capabilities"]
         for button, (label, key, options, labels, glyph) in self.tiles:
             enabled = bool(caps.get(key))
-            button.setEnabled(enabled and key not in self.busy)
+            button.setEnabled(self.quick_editing or (enabled and key not in self.busy))
             value = values.get(key)
-            text = labels[options.index(value)] if value in options else "--"
+            text = "Open" if key == "OnScreenKeyboard" else labels[options.index(value)] if value in options else "--"
+            button.visual_state = "trigger" if key == "OnScreenKeyboard" else "active" if key in ("LegionPerformanceMode", "CPUEPP") else "on" if value else "off"
+            if self.quick_editing and key in self.store.get("quick_hidden", []):
+                text = "Hidden"
             button.set_display(self.i18n.text(label), self.i18n.text(text))
             self.i18n.bind(button, "" if enabled else "Unavailable on this device", "setToolTip")
         self.brightness.setEnabled(bool(caps.get("PanelBrightness")))

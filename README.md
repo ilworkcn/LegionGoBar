@@ -4,7 +4,7 @@
 
 LegionGoBar 是面向第一代 **Lenovo Legion Go** 的独立掌机控制前端，以 **Python + PySide6（Qt）** 实现。项目以 [GoTweaks](https://github.com/corando98/GoTweaks) 为复刻基准，目标是完整复现其界面与功能，提供性能调节、显示设置、手柄控制和游戏配置等常用功能。
 
-程序独立运行，无需 Xbox Game Bar、Xbox App 或 Legion Space 前端。日常使用采用无边框窗口，支持触屏、键鼠和手柄导航，并提供简体中文与英文界面。所有界面文字统一使用 Windows 内置微软雅黑。
+程序独立运行，无需 Xbox Game Bar、Xbox App 或 Legion Space 前端。日常使用采用无边框窗口，支持触屏、键鼠和手柄导航，并提供简体中文与英文界面。界面内置 Noto Sans CJK SC 字体，统一中英文排版与平滑渲染。
 
 ## 界面演示
 

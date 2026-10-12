@@ -15,3 +15,9 @@ GoTweaks provides the UI reference, control names and adapted Lenovo device prot
 ## Runtime dependencies
 
 Python, Qt/PySide6, shiboken6, psutil, hidapi, pywin32 and the PyInstaller bootloader retain their respective licenses. License texts are included in `reference/licenses/` and in the portable distribution. Windows fonts are loaded from the system installation and are not bundled.
+
+## Noto Sans CJK SC
+
+界面内置 Noto Sans CJK SC 静态字体，依据 SIL Open Font License 1.1 分发。
+来源：https://github.com/notofonts/noto-cjk/tree/main/Sans
+完整许可：`src/legiongobar/assets/fonts/OFL.txt`（便携包位于 `_internal/legiongobar/assets/fonts/OFL.txt`）。

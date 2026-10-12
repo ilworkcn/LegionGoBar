@@ -5,6 +5,7 @@ import re
 from importlib.resources import files
 from ..i18n import I18n
 from .. import __version__
+from .slider import Slider
 
 from PySide6.QtCore import Qt, Signal, QSignalBlocker, QSize
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QIcon
@@ -55,22 +56,22 @@ class Toggle(QAbstractButton):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setCheckable(True)
-        self.setFixedSize(44, 24)
+        self.setFixedSize(48, 28)
         self.setFocusPolicy(Qt.StrongFocus)
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(QPen(QColor("#50555C"), 1))
+        painter.setPen(QPen(QColor("#A0A0A0" if self.isEnabled() else "#50555C"), 1))
         painter.setBrush(QColor("#58C8ED" if self.isChecked() else "#30343A"))
-        painter.drawRoundedRect(1, 2, 41, 20, 10, 10)
+        painter.drawRoundedRect(4, 4, 40, 20, 10, 10)
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor("#25282C" if self.isChecked() else "#A0A0A0"))
-        painter.drawEllipse(25 if self.isChecked() else 5, 6, 12, 12)
+        painter.drawEllipse(28 if self.isChecked() else 8, 8, 12, 12)
         if self.hasFocus():
             painter.setBrush(Qt.NoBrush)
             painter.setPen(QPen(QColor("white"), 2))
-            painter.drawRoundedRect(1, 1, 42, 22, 11, 11)
+            painter.drawRoundedRect(1, 1, 46, 26, 4, 4)
 
 
 class ClickFrame(QFrame):
@@ -137,8 +138,11 @@ class Renderer:
                 row.addWidget(QLabel(value))
                 layout.addLayout(row)
             layout.addWidget(self.i18n.bind(QLabel(), "Credits"))
-            link = QLabel('<a href="https://github.com/corando98/GoTweaks">corando98/GoTweaks</a>')
+            link = QLabel('<a style="color: #78D8FF; text-decoration: underline;" href="https://github.com/corando98/GoTweaks">corando98/GoTweaks</a>')
             link.setOpenExternalLinks(True)
+            link.setObjectName("credits_link")
+            link.setTextInteractionFlags(Qt.TextBrowserInteraction)
+            link.setFocusPolicy(Qt.StrongFocus)
             layout.addWidget(link)
         elif kind == "TextBlock":
             text = attrs.get("Text", node.get("text", ""))
@@ -182,7 +186,7 @@ class Renderer:
             widget.setChecked(attrs.get("IsChecked") == "True")
             self.bind(widget, node, widget.toggled, widget.isChecked)
         elif kind == "Slider":
-            widget = QSlider(Qt.Horizontal, parent)
+            widget = Slider(Qt.Horizontal, parent)
             step = float(attrs.get("StepFrequency", 1))
             scale = 100 if step < 0.1 else 10 if step < 1 else 1
             widget.setProperty("scale", scale)
@@ -190,10 +194,18 @@ class Renderer:
             widget.setMaximum(round(float(attrs.get("Maximum", 100)) * scale))
             widget.setSingleStep(max(1, round(step * scale)))
             widget.setValue(round(float(attrs.get("Value", 0)) * scale))
-            widget.setMinimumHeight(28)
+            tick = max(1, round(float(attrs.get("TickFrequency", step)) * scale))
+            widget.setTickInterval(tick)
+            placement = attrs.get("TickPlacement", "None")
+            widget.setTickPosition({"Outside": QSlider.TicksBothSides, "BottomRight": QSlider.TicksBelow, "TopLeft": QSlider.TicksAbove}.get(placement, QSlider.NoTicks))
+            widget.snap_interval = tick if attrs.get("SnapsTo") == "Ticks" else widget.singleStep()
+            widget.setSingleStep(widget.snap_interval)
+            widget.setPageStep(widget.snap_interval * 10)
             self.bind(widget, node, widget.sliderReleased, lambda w=widget, s=scale: w.value() / s if s != 1 else w.value())
             # 键盘与手柄方向键调整也需要提交实际设置值。
             widget.actionTriggered.connect(lambda action, w=widget, n=node: self.slider_action(w, n, action))
+            if attrs.get("Name") == "TDPSlider":
+                widget.valueChanged.connect(lambda value: self.show_tdp_value(value))
         elif kind == "ComboBox":
             widget = QComboBox(parent)
             for index, child in enumerate(children):
@@ -311,17 +323,36 @@ class Renderer:
                 widget.setProperty("role", "card")
             if kind == "Grid":
                 layout = QGridLayout(widget)
+                cells = {}
                 for child in children:
                     rendered = self.render(child, parent=widget)
                     if rendered is not None:
-                        a = child["attrs"]
-                        row, column = int(a.get("Grid.Row", 0)), int(a.get("Grid.Column", 0))
-                        alignment = Qt.AlignmentFlag(0)
-                        if a.get("HorizontalAlignment") == "Right":
-                            alignment |= Qt.AlignRight
-                        if a.get("VerticalAlignment") == "Center":
-                            alignment |= Qt.AlignVCenter
-                        layout.addWidget(rendered, row, column, int(a.get("Grid.RowSpan", 1)), int(a.get("Grid.ColumnSpan", 1)), alignment)
+                        a = self.attrs(child)
+                        cell = (int(a.get("Grid.Row", 0)), int(a.get("Grid.Column", 0)), int(a.get("Grid.RowSpan", 1)), int(a.get("Grid.ColumnSpan", 1)))
+                        cells.setdefault(cell, []).append((rendered, a))
+                for cell, items in cells.items():
+                    # XAML 常把标题与右侧数值叠放在同一格；Qt 用独立横排保留间距。
+                    if len(items) > 1 and all(isinstance(w, QLabel) for w, _ in items):
+                        row_widget = QWidget(widget)
+                        row_layout = QHBoxLayout(row_widget)
+                        row_layout.setContentsMargins(0, 0, 0, 0)
+                        row_layout.setSpacing(12)
+                        for child_widget, a in items:
+                            right = a.get("HorizontalAlignment") == "Right"
+                            if right:
+                                child_widget.setWordWrap(False)
+                                child_widget.setMinimumHeight(child_widget.fontMetrics().height())
+                                child_widget.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                            row_layout.addWidget(child_widget, 0 if right else 1)
+                        layout.addWidget(row_widget, *cell)
+                    else:
+                        for child_widget, a in items:
+                            alignment = Qt.AlignmentFlag(0)
+                            if a.get("HorizontalAlignment") == "Right":
+                                alignment |= Qt.AlignRight
+                            if a.get("VerticalAlignment") == "Center":
+                                alignment |= Qt.AlignVCenter
+                            layout.addWidget(child_widget, *cell, alignment)
                 definitions = next((c for c in node["children"] if c["type"] == "Grid.ColumnDefinitions"), None)
                 if definitions:
                     for index, child in enumerate(definitions["children"]):
@@ -424,6 +455,11 @@ class Renderer:
                         chip.clicked.connect(lambda checked=False, k=key, c=code: self.remove_mapping_key(k,c))
                         layout.addWidget(chip)
 
+    def show_tdp_value(self, value):
+        label = self.named.get("TDPValueText")
+        if label:
+            self.i18n.bind(label, "{value}", value=f"{value:g} W")
+
     def slider_action(self, widget, node, action):
         if not widget.isSliderDown():
             key = function_for(node["attrs"].get("Name", ""), self.reference["functions"])
@@ -462,7 +498,8 @@ class Renderer:
                 if isinstance(widget, (Toggle, QCheckBox)):
                     widget.setChecked(value == "PERFORMANCE" if key == "LosslessScalingSize" else bool(value))
                 elif isinstance(widget, QSlider):
-                    widget.setValue(round(float(value) * (widget.property("scale") or 1)))
+                    if not widget.isSliderDown():
+                        widget.setValue(round(float(value) * (widget.property("scale") or 1)))
                 elif isinstance(widget, QComboBox):
                     if key in ("Resolution", "RefreshRate"):
                         options = values.get("Resolutions" if key == "Resolution" else "RefreshRates", [])
@@ -482,7 +519,11 @@ class Renderer:
         for name, key in (("CurrentTDPValueText", "CurrentTDP"), ("TDPValueText", "TDP"), ("ActiveProfileText", "ActiveProfile")):
             widget = self.named.get(name)
             if isinstance(widget, QLabel) and key in values:
-                self.i18n.bind(widget, "{value}", value=values[key])
+                if key == "TDP":
+                    slider = self.named.get("TDPSlider")
+                    self.show_tdp_value(slider.value() if slider and slider.isSliderDown() else values[key])
+                else:
+                    self.i18n.bind(widget, "{value}", value=f"{values[key]:g} W" if key == "CurrentTDP" else values[key])
         # 原界面中由开关驱动的可见性绑定。
         for widget, binding in self.pending_bindings:
             match = re.search(r"ElementName=(\w+), Path=IsOn", binding)
