@@ -1,0 +1,31 @@
+QWidget { background: #25282C; color: #FFFFFF; font-family: 'Segoe UI'; font-size: 14px; }
+QWidget[role='card'] { background: #30343A; border: 2px solid #50555C; border-radius: 8px; }
+QWidget[role='card'] QWidget { background: transparent; }
+QLabel { border: none; background: transparent; }
+QLabel[role='title'] { font-size: 18px; font-weight: 700; }
+QLabel[role='caption'] { color: #A0A0A0; font-size: 14px; }
+QLabel[role='value'] { color: #58C8ED; font-size: 18px; font-weight: 600; }
+QPushButton, QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox { background: #3E434B; border: 1px solid #555B65; border-radius: 8px; padding: 6px 10px; min-height: 22px; }
+QPushButton:hover, QComboBox:hover { background: #484E58; }
+QPushButton:pressed { background: #3A3F47; }
+QPushButton:focus, QComboBox:focus, QLineEdit:focus, QCheckBox:focus { border: 2px solid white; }
+QWidget:disabled { color: #8E9298; }
+QPushButton:disabled, QComboBox:disabled { background: #2C3035; border-color: #3A3F46; }
+QComboBox::drop-down { border: none; width: 22px; }
+QComboBox QAbstractItemView { background: #30343A; selection-background-color: #484E58; padding: 5px; }
+QSlider::groove:horizontal { background: #626970; height: 4px; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: #58C8ED; border-radius: 2px; }
+QSlider::handle:horizontal { background: #58C8ED; border: 4px solid #3E434B; width: 12px; height: 12px; margin: -8px 0; border-radius: 10px; }
+QSlider:focus::handle:horizontal { border: 2px solid white; }
+QSlider::handle:horizontal:disabled { background: #8E9298; }
+QScrollArea { border: none; }
+QScrollBar:vertical { width: 6px; background: transparent; }
+QScrollBar::handle:vertical { background: #656A72; min-height: 20px; border-radius: 3px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+QPushButton[role='nav'] { background: transparent; color: #AAAAAA; font-size: 12px; font-weight: 600; padding: 8px 5px; border: none; border-radius: 6px; }
+QPushButton[role='nav']:checked { color: #58C8ED; border-bottom: 3px solid #58C8ED; }
+QPushButton[role='nav']:focus { background: #E8E8E8; color: #25282C; }
+QPushButton[role='tile'] { background: #30343A; border: 2px solid #50555C; min-height: 94px; font-size: 16px; text-align: center; }
+QPushButton[role='tile']:focus { border: 2px solid white; }
+QPushButton[role='tile']:checked { border-color: #58C8ED; }

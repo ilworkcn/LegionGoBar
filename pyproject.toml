@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "legiongobar"
+version = "0.1.0"
+description = "Standalone Python desktop controls for Lenovo Legion Go"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["PySide6-Essentials>=6.8,<7", "psutil>=6,<8", "hidapi>=0.14,<1", "pywin32>=310; sys_platform == 'win32'"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pyinstaller>=6"]
+
+[project.gui-scripts]
+legiongobar = "legiongobar.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+legiongobar = ["assets/*.json", "assets/*.qss", "assets/glyphs/*.svg", "assets/native/*.dll"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
