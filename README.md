@@ -34,10 +34,12 @@ LegionGoBar 是面向第一代 **Lenovo Legion Go** 的独立掌机控制前端�
 
 - **快捷控制**：性能模式、CPU Boost、EPP、亮度和常用功能磁贴。
 - **性能调节**：TDP 与加速功率、Sticky TDP 偏移恢复、Windows 电源模式、CPU 能效偏好。
-- **AutoTDP**：基于 RTSS 帧率采样的保守 PID 功率调节，支持目标帧率、功率上下限与失焦暂停；Q-Learning／SARSA 学习模式尚未移植。
-- **性能叠加层**：RTSS OSD 基础监控，支持项目选择、排序、列数、字号、颜色、透明度和时钟格式。
+- **AutoTDP**：提供 PID、Q-Learning 与 SARSA 三种模式，支持目标帧率、功率上下限、失焦暂停、同步限帧与恢复、帧率上限探测与学习数据持久化；有效 PresentMon 数据优先用于实际渲染帧率判断。
+- **性能叠加层**：RTSS OSD 监控、帧时间图及统计、PresentMon CPU／GPU 帧预算，支持项目选择、排序、列数、字号、动态颜色、透明度和时钟格式。
 - **帧率限制**：通过已安装并运行的 RTSS 控制全局帧率上限，支持关闭限制、恢复上次上限与运行状态检测。
 - **Legion Go 设备控制**：性能模式、风扇、充电上限、RGB 灯光、触控板、震动、摇杆、扳机与陀螺仪设置；背键支持手柄动作、键盘组合与鼠标操作映射。
+- **虚拟手柄**：通过 VIIPER／USBip 提供 Xbox 360、DualShock 4、DualSense／Edge、Switch Pro／Joy-Con 与 Steam 手柄输出，支持震动、触控板、运动数据、灯光反馈、摇杆／扳机曲线和 HidHide 设备隐藏恢复。
+- **体感操作**：支持手柄与机身 IMU、按传感器配置轴映射、陀螺仪转摇杆、按键激活、灵敏度与响应曲线、Player／World Space、软件校准及偏置保存。
 - **显示与图形**：分辨率、刷新率、HDR、AMD 显示颜色，以及按驱动能力提供的 AMD RSR、Anti-Lag、Boost、Chill、锐化与 AFMF 设置。
 - **Lossless Scaling 集成**：启动程序、显示窗口、按游戏选择配置、克隆与重置配置、保存并重启，以及按 LS 快捷键触发缩放。
 - **游戏配置**：按游戏可执行文件自动切换设置，支持共用、接电（AC）与电池（DC）配置，返回桌面时恢复全局设置，支持 JSON 导入与导出、原版 GameProfile／GoTweaksProfiles XML 导入和配置保存范围选择。
@@ -46,7 +48,7 @@ LegionGoBar 是面向第一代 **Lenovo Legion Go** 的独立掌机控制前端�
 - **桌面使用**：托盘、全局唤出快捷键、手柄导航、无边框窗口与调试窗口模式。
 - **多语言**：简体中文、英文和跟随系统语言；可在系统分页即时切换。
 
-项目正在开发中，尚未完成全部原版功能移植。虚拟手柄／VIIPER、学习型 AutoTDP、完整 OSD 图表与部分设备功能仍在开发。功能可用性取决于设备、固件、驱动及已安装的配套软件；完整的功能对照见 [复刻进度](docs/PARITY.md)。
+项目正在开发中，尚未完成全部原版功能移植。部分高级策略、动态灯效、游戏库自动发现及设备功能仍在完善，新增硬件控制尚需在第一代 Legion Go 上完成实测。功能可用性取决于设备、固件、驱动及已安装的配套软件；完整的功能对照见 [复刻进度](docs/PARITY.md)。
 
 ## 安装与运行
 
@@ -74,7 +76,7 @@ python -m venv .venv
 - 手柄方向键导航，`A` 确认，`B` 返回，`LT / RT` 切换分页。
 - 在“系统 → 语言”中切换简体中文、English 或跟随系统。
 
-日常启动默认使用无边框窗口。调试时可启用标准窗口边框：
+双击 `LegionGoBar.exe` 或 `Start.cmd` 进入正常模式；`Preview.cmd` 仅用于演示。日常启动默认使用无边框窗口。调试时可启用标准窗口边框：
 
 ```powershell
 LegionGoBar.exe --windowed
@@ -114,4 +116,6 @@ powershell -ExecutionPolicy Bypass -File tools\build.ps1 -Python .venv\Scripts\p
 
 感谢 [corando98/GoTweaks](https://github.com/corando98/GoTweaks) 提供原始界面、交互设计与设备控制实现。本项目以该仓库为完整复刻目标；开发时使用的本地 `GoTweaks-Desktop` 是其 fork。
 
-LegionGoBar 的作者为 **SUNNYQUAN**。本项目代码使用 [MIT License](LICENSE)，第三方代码、参考资料和依赖的许可声明见 [Third-party notices](THIRD-PARTY-NOTICES.md)。
+LegionGoBar 的作者为 **SUNNYQUAN**。本项目自有代码使用 [MIT License](LICENSE)；包含 VIIPER 的组合分发遵守 GPLv3，并附带对应源码。第三方代码、参考资料和依赖的许可声明见 [Third-party notices](THIRD-PARTY-NOTICES.md)。
+
+使用 `--screenshot normal.png --tab Quick` 可保存真实设备检测后的界面与同名 JSON 状态记录，截图期间不会写入设备。只有显式添加 `--demo` 才会使用演示数据。

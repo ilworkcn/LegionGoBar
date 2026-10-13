@@ -28,3 +28,38 @@ Python, Qt/PySide6, shiboken6, psutil, hidapi, pywin32 and the PyInstaller bootl
 RTSS 共享内存布局参考 [RTSSSharedMemoryNET SDK header](https://github.com/spencerhakim/RTSSSharedMemoryNET/blob/master/RTSSSharedMemoryNET/RTSSSharedMemory.h) 与 [RTSS SDK header](https://github.com/jaxFF/RTSSTweaks/blob/master/thirdparty/rtss-sdk/Include/RTSSSharedMemory.h)。Python 实现不加载 RTSSSharedMemoryNET.dll。
 
 原子操作使用 [atomics](https://github.com/doodspav/atomics)（MIT）及其 patomic、cffi 依赖，发行包包含相应依赖许可。RTSS 本体需要用户自行安装。
+
+
+## VIIPER
+
+Controller emulation includes the native VIIPER library from the GoTweaks fork,
+revision `7805d80b32cf6a27319276599e7fd76dd96d2a6c` (Alia5/VIIPER and contributors).
+VIIPER is licensed under GPL-3.0; the combined distribution is provided under
+GPL-3.0. LegionGoBar source retains its own MIT license. The full GPL text is in
+`reference/licenses/VIIPER-GPLv3.txt`; corresponding VIIPER source is included in
+`reference/vendor/VIIPER-7805d80-source.zip`, including its module manifests and
+native-library build instructions in `clib/main.go`.
+Upstream: https://github.com/Alia5/VIIPER
+Fork: https://github.com/corando98/VIIPER
+
+## PresentMon 2.4.1
+
+Copyright (C) 2017-2024 Intel Corporation. MIT License.
+
+Source: https://github.com/GameTechDev/PresentMon/tree/v2.4.1
+
+License: `reference/licenses/PresentMon-MIT.txt`. The native capture executable is distributed with LegionGoBar.
+
+## GamepadMotionHelpers
+
+Copyright (c) 2020-2023 Julian "Jibb" Smart. MIT License.
+
+Native sensor fusion library and C export shim from the reference project.
+License: `reference/licenses/GamepadMotion-MIT.txt`; corresponding sources: `reference/vendor/GamepadMotion`.
+
+## PyWinRT 3.2.1
+
+Windows Runtime Python bindings. MIT License.
+Source: https://github.com/pywinrt/pywinrt/tree/v3.2.1
+
+License: `reference/licenses/PyWinRT-MIT.txt`.

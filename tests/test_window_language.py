@@ -17,7 +17,10 @@ def app():
 
 def make_window(tmp_path, **options):
     store = Store(tmp_path)
-    return Window(Backend(store, demo=True), store, no_tray=True, **options)
+    window = Window(Backend(store, demo=True), store, no_tray=True, **options)
+    window.pool.waitForDone()
+    QApplication.processEvents()
+    return window
 
 def dispose(app, window):
     window.quit()
@@ -69,6 +72,10 @@ def test_switch_language_preserves_device_values_and_pages(app, tmp_path):
         window.select("Legion")
         combo = window.renderer.named["LegionLightModeComboBox"]
         combo.setCurrentIndex(2)
+        combo.activated.emit(2)
+        # 等待异步应用回读后再验证语言切换，避免使用初始化占位值。
+        window.pool.waitForDone()
+        app.processEvents()
         payload = combo.currentData()
         page = window.page_widgets["Legion"]
         language.set_language("zh_CN")

@@ -3,14 +3,31 @@ from __future__ import annotations
 import ctypes
 import os
 import subprocess
+import time
+import threading
 from ctypes import wintypes
 
 import psutil
 
 
+_cpu_sample = threading.local()
+
+
+def cpu_usage():
+    # 每个采样线程保留至少一秒的统计窗口，额外状态读取不缩短窗口。
+    now = time.monotonic()
+    if now >= getattr(_cpu_sample, "deadline", 0):
+        _cpu_sample.value = round(psutil.cpu_percent())
+        _cpu_sample.deadline = now + 1.0
+    return _cpu_sample.value
+
+
 def telemetry():
     battery = psutil.sensors_battery()
-    return {"CPUUsage": round(psutil.cpu_percent()), "MemoryUsage": round(psutil.virtual_memory().percent),
+    memory=psutil.virtual_memory()
+    clock=psutil.cpu_freq()
+    return {"MemoryUsed":memory.used,"MemoryTotal":memory.total,"CPUClock":round(clock.current) if clock else None,
+            "CPUUsage": cpu_usage(), "MemoryUsage": round(memory.percent),
             "BatteryLevel": round(battery.percent) if battery else None,
             "ACConnected": battery.power_plugged if battery else True}
 

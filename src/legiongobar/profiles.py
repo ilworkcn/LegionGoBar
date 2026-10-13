@@ -4,7 +4,7 @@ import json
 import ntpath
 import time
 
-PROFILE_KEYS = {"AutoTDPEnabled", "AutoTDPTargetFPS", "AutoTDPMinTDP", "AutoTDPMaxTDP", "AutoTDPPauseWhenUnfocused", "OSD", "HDREnabled", "FPSLimit", "StickyTDPEnabled", "StickyTDPInterval", "TDP", "CPUBoost", "CPUEPP",
+PROFILE_KEYS = {"AutoTDPControllerType","AutoTDPEnabled", "AutoTDPTargetFPS", "AutoTDPMinTDP", "AutoTDPMaxTDP", "AutoTDPPauseWhenUnfocused", "OSD", "HDREnabled", "FPSLimit", "StickyTDPEnabled", "StickyTDPInterval", "TDP", "CPUBoost", "CPUEPP",
                 "TDPBoostEnabled", "TDPBoostSPPT", "TDPBoostFPPT", "OSPowerMode", "Resolution", "RefreshRate",
                 "LegionNintendoLayout", "LegionVibration", "LegionVibrationMode", "LegionPerformanceMode",
                 "LegionJoystickAsMouseMode", "LegionJoystickMouseSens"}

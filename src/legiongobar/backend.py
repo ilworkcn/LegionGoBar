@@ -19,6 +19,7 @@ HID_DEFAULTS = {"LegionLightMode": 0, "LegionLightColor": "#00ADEF", "LegionLigh
                 "LegionGyroActivationButton": 0, "LegionLeftTriggerStart": 0, "LegionLeftTriggerEnd": 6,
                 "LegionRightTriggerStart": 0, "LegionRightTriggerEnd": 6,
                 "LegionJoystickAsMouseMode": 0, "LegionJoystickMouseSens": 50}
+HID_DEFAULTS["LegionHairTriggers"]=False
 HID_KEYS = set(HID_DEFAULTS) | {"LegionTouchpadEnabled", "LegionTouchpadVibration", "LegionVibration", "LegionVibrationMode",
                                "LegionNintendoLayout", "LegionLeftStickDeadzone", "LegionRightStickDeadzone",
                                "LegionGyroTarget", "LegionGyroDeadzone", "Settings_LegionControllerSleepMinutes"}
@@ -37,13 +38,23 @@ class Applied:
 
 
 class Backend:
-    def __init__(self, store, demo=False):
+    def __init__(self, store, demo=False, read_only=False):
         self.store, self.demo = store, demo
+        self.read_only=read_only
+        self.next_device_metrics=0
         self.capabilities = {}
         self.values = {}
         self.capabilities.update({key: True for key in LOCAL_KEYS})
         self.values.update({key: self.store.get(key, False) for key in LOCAL_KEYS})
         self.wmi = self.controller = self.power = self.display = self.amd = self.scaling = None
+        self.emulation = None
+        from .native.presentmon import Capture
+        self.presentmon = Capture()
+        from .native.viiper import DEFAULTS as VIIPER_DEFAULTS
+        self.values.update({key:self.store.get(key,value) for key,value in VIIPER_DEFAULTS.items()})
+        self.values["ControllerEmulationEnabled"] = False
+        from .fps_sync import FpsSync
+        self.fps_sync=FpsSync()
         self.rtss = None
         self.rtss_memory = None
         self.values.update({"OSD": self.store.get("OSD", 0), "OSDConfig": self.store.get("OSDConfig", "")})
@@ -51,10 +62,17 @@ class Backend:
         self.idle = None
         self.next_idle = 0.0
         self.next_scaling = 0.0
+        self.next_metrics = 0.0
+        self.next_dependencies = 0.0
         for key in ("HibernateTimeoutAC", "HibernateTimeoutDC"):
             self.values[key] = self.store.get(key, 0)
         self.next_sticky = self.next_rtss = 0.0
         self.auto = AutoTdp()
+        self.learners = {}
+        self.learned_games = None
+        self.auto_started = 0.0
+        self.learned_applied = False
+        self.stable_observations = 0
         self.auto_active = False
         self.next_auto = 0.0
         self.auto_game = None
@@ -72,7 +90,14 @@ class Backend:
             self.capabilities.update({"LosslessScaling"+key:True for key in LS_DEFAULTS})
             self.values.update({"LosslessScaling"+key:value for key,value in LS_DEFAULTS.items()})
             self.values.update({"LosslessScalingCurrentProfile":"Default", "LosslessScalingEnabled":False, "LosslessScalingInstalled":True, "LosslessScalingRunning":False})
-            self.capabilities["AutoTDPControllerType"] = False
+            from .native.viiper import DEFAULTS as VIIPER_DEFAULTS
+            self.capabilities.update({key:True for key in VIIPER_DEFAULTS})
+            self.capabilities["ControllerEmulationEnabled"] = True
+            self.values["ViiperAvailable"] = True
+            self.values["Dependencies"]={"Usbip":False,"HidHide":False,"Rtss":False}
+            self.capabilities.update({"Install"+name:True for name in ("Usbip","HidHide","Rtss")})
+            self.capabilities["AutoTDPControllerType"] = True
+            self.capabilities["AutoTDPResetML"] = True
             self.values.update(HID_DEFAULTS)
             self.values.update({"DeviceDisplayName": "Legion Go · Preview", "LegionPerformanceMode": 2, "CPUBoost": False, "CPUEPP": 30,
                                 "TDP": 15, "PanelBrightness": 70, "Resolution": "2560x1600", "RefreshRate": 144,
@@ -114,7 +139,7 @@ class Backend:
             errors.append(str(exc))
         self.wmi = LenovoWmi()
         if self.wmi.available():
-            for key in [*FEATURES, "LegionPerformanceMode"]:
+            for key in [*FEATURES, "LegionPerformanceMode", "LegionPowerLight"]:
                 try:
                     self.values[key] = self.wmi.get(key)
                     self.capabilities[key] = key not in ("LegionCPUFanRPM", "LegionCPUCurrentTemp", "LegionFanSensorTemp")
@@ -192,6 +217,18 @@ class Backend:
         except Exception as exc:
             self.capabilities.update({"HibernateTimeoutAC": False, "HibernateTimeoutDC": False, "ScreenSaverEnabled": False})
             errors.append(f"Idle: {exc}")
+        from .native.viiper import Emulation, DEFAULTS as VIIPER_DEFAULTS
+        self.emulation = Emulation(self.store.directory)
+        if not self.read_only:
+            try:self.emulation.hide.restore()
+            except Exception as error:errors.append("HidHide recovery: "+str(error))
+        self.capabilities.update({key:True for key in VIIPER_DEFAULTS})
+        self.capabilities["ControllerEmulationEnabled"] = self.emulation.available()
+        self.values["ViiperAvailable"] = self.emulation.available()
+        from .native.dependencies import status as dependency_status
+        try:self.values["Dependencies"]=dependency_status()
+        except Exception as error:errors.append("Dependencies: "+str(error))
+        self.capabilities.update({"Install"+name:True for name in ("Usbip","HidHide","Rtss")})
         self.values["DiscoveryErrors"] = errors
         return self.snapshot()
 
@@ -222,6 +259,45 @@ class Backend:
             return self.snapshot()
         now = time.monotonic() if now is None else now
         errors = []
+        if self.emulation:
+            if now>=self.next_dependencies:
+                from .native.dependencies import status as dependency_status
+                self.next_dependencies=now+10
+                try:self.values["Dependencies"]=dependency_status()
+                except Exception as error:errors.append("Dependencies: "+str(error))
+                self.capabilities["ControllerEmulationEnabled"]=self.emulation.available()
+                self.values["ViiperAvailable"]=self.emulation.available()
+            active,error=self.emulation.status()
+            self.values["ControllerEmulationEnabled"]=active
+            self.values["ViiperError"]=error
+            self.values["OverlayWakeCount"]=self.emulation.overlay_count
+            self.values["ViiperStickGyroLive"]=self.emulation.gyro_live
+            self.values["GyroCalibration"]=dict(self.emulation.calibration)
+            if self.emulation.bias_update is not None:
+                bias=self.emulation.bias_update
+                self.store.set('ViiperGyroBias',bias)
+                self.values['ViiperGyroBias']=bias
+                self.emulation.bias_update=None
+        if self.wmi and now>=self.next_device_metrics:
+            self.next_device_metrics=now+2
+            for key in ("LegionCPUFanRPM","LegionCPUCurrentTemp","LegionFanSensorTemp"):
+                if key not in self.values:continue
+                try:
+                    self.values[key]=self.wmi.get(key)
+                    if key=="LegionCPUCurrentTemp":self.values["CPUTemperature"]=self.values[key]
+                except Exception as error:
+                    self.values.pop(key,None)
+                    if key=="LegionCPUCurrentTemp":self.values.pop("CPUTemperature",None)
+                    errors.append(str(error))
+        if self.amd and now >= self.next_metrics:
+            self.next_metrics = now + 1
+            for key in ("GPUUsage","GPUClock","GPUTemperature","GPUPower","VRAMUsage","VRAMClock"):
+                self.values.pop(key,None)
+            try:
+                self.values.update(self.amd.metrics())
+            except (OSError,RuntimeError,AttributeError) as error:
+                self.next_metrics = now + 10
+                errors.append(f"AMD metrics: {error}")
         if self.scaling and now >= self.next_scaling:
             self.next_scaling = now + 2
             try:
@@ -267,6 +343,17 @@ class Backend:
         if self.rtss_memory and self.values.get("RTSSRunning"):
             try:
                 self.values["FrameSamples"] = self.rtss_memory.samples()
+                from .native.system import foreground
+                from .profiles import canonical
+                path=foreground()
+                samples=self.values["FrameSamples"]
+                selected=next((entry for entry in samples if path and canonical(entry["name"])==canonical(path)),None)
+                if selected is None and self.presentmon.metrics:
+                    selected=next((entry for entry in samples if entry["pid"]==self.presentmon.metrics.pid),None)
+                if selected is None and len(samples)==1:selected=samples[0]
+                needed=self.values.get("OSD") or self.values.get("AutoTDPEnabled")
+                self.values["PresentMon"]=self.presentmon.update(selected["pid"] if selected and needed else None,now)
+                self.values["PresentMonError"]=self.presentmon.error
                 if self.values.get("OSD") and self.supported("OSD"):
                     from .osd import render
                     self.rtss_memory.publish(render(self.values["OSD"], self.values["OSDConfig"], telemetry(), self.values))
@@ -275,9 +362,18 @@ class Backend:
             except (OSError, ValueError) as exc:
                 self.values["FrameSamples"] = []
                 errors.append(str(exc))
+        if not self.values.get("RTSSRunning"):
+            self.presentmon.close()
+            self.values["PresentMon"]={"live":False}
         auto_available = self.supported("TDP") and bool(self.rtss_memory) and self.values.get("RTSSRunning", False)
-        self.capabilities.update({key: bool(auto_available) for key in AUTO_DEFAULTS if key != "AutoTDPControllerType"})
+        self.capabilities.update({key: bool(auto_available) for key in AUTO_DEFAULTS})
+        self.capabilities["AutoTDPResetML"] = bool(auto_available)
         try:
+            sync=bool(self.values.get('AutoTDPSyncFPSLimit') and self.values.get('AutoTDPEnabled'))
+            target=self.values['AutoTDPTargetFPS']
+            if self.supported('FPSLimit') and ((sync and self.fps_sync.applied!=target) or (not sync and self.fps_sync.previous is not None)):
+                actual=self.fps_sync.update(sync,target,self.rtss)
+                if actual is not None:self.values.update(FPSLimit=actual,FPSLimitEnabled=actual>0)
             if now >= self.next_auto:
                 self.maintain_auto(now)
         except Exception as exc:
@@ -334,16 +430,74 @@ class Backend:
                 self.auto_power(self.values["TDP"])
             self.auto = AutoTdp()
             self.auto_game = sample["pid"]
+            self.auto_started = now
+            self.stable_observations = 0
+            self.learned_applied = False
+            if self.values.get("AutoTDPControllerType")==2:
+                learned = self.game_learning().get(sample["name"],self.values["AutoTDPTargetFPS"])
+                if learned:
+                    self.auto_power(max(self.values["AutoTDPMinTDP"],min(self.values["AutoTDPMaxTDP"],learned)))
+                    self.learned_applied = True
+        present=self.values.get("PresentMon",{})
+        if present.get("live") and present.get("pid")==sample["pid"] and present.get("rendered_fps",0)>0:
+            sample=dict(sample,fps=present["rendered_fps"])
         current = self.wmi.get("LegionCustomTDPSlow")
         self.values["AutoTDPCurrentFPS"] = round(sample["fps"])
         wanted = self.auto.decide(now, sample["fps"], current, self.values["AutoTDPTargetFPS"],
-                                  self.values["AutoTDPMinTDP"], self.values["AutoTDPMaxTDP"])
+                                  self.values["AutoTDPMinTDP"], self.values["AutoTDPMaxTDP"],
+                                  learner=self.learning_controller(), gpu=self.values.get("GPUUsage",50.),
+                                  frametime_variance=sample.get("frame_variance",0.))
+        learner = self.learning_controller()
+        if learner:
+            self.values.update({"AutoTDPMLUpdates":learner.updates,"AutoTDPMLExploration":round(learner.epsilon*100),
+                               "AutoTDPMLAverageReward":sum(learner.rewards)/len(learner.rewards) if learner.rewards else 0,
+                               "AutoTDPLearningLoadError":learner.load_error})
         self.auto_active = True
         if wanted is not None and wanted != current:
+            if wanted>current:self.auto.ceiling.increase(self.auto.last_smoothed,current)
             self.auto_power(wanted)
+        if learner and learner.sarsa:
+            if wanted is not None and now-self.auto_started>=30:
+                error=self.values["AutoTDPTargetFPS"]-(self.auto.last_smoothed or sample["fps"])
+                if learner.stays>=5 and abs(error)<=2:
+                    self.stable_observations+=1
+                    if 0<sample.get("frame_variance",0)<2 and self.stable_observations>=10:
+                        self.game_learning().record(sample["name"],self.wmi.get("LegionCustomTDPSlow"),self.values["AutoTDPTargetFPS"])
+                        self.stable_observations=0
+                elif learner.stays<5:self.stable_observations=0
+                if self.learned_applied and abs(error)>10:
+                    self.game_learning().unreliable(sample["name"])
+                    self.learned_applied=False
+            self.values["AutoTDPLearnedGameData"]=self.game_learning().summary(sample["name"],self.values["AutoTDPTargetFPS"])
         self.values["AutoTDPMLStatus"] = self.auto.status
+        self.values.update({"AutoTDPCeilingDetected":self.auto.ceiling.detected,
+                           "AutoTDPEffectiveTarget":self.auto.ceiling.effective,
+                           "AutoTDPAchievableFPS":round(self.auto.ceiling.locked,1)})
+
+    def game_learning(self):
+        if self.learned_games is None:
+            from .learned_games import LearnedGames
+            self.learned_games = LearnedGames(self.store.directory)
+        return self.learned_games
+
+    def learning_controller(self):
+        mode = self.values.get("AutoTDPControllerType",0)
+        if mode == 0:return None
+        if mode not in self.learners:
+            from .learning import LearningController
+            self.learners[mode] = LearningController(self.store.directory,sarsa=mode==2)
+        return self.learners[mode]
 
     def snapshot(self):
+        self.capabilities.update({key:bool(self.values.get("ControllerEmulationEnabled")) for key in ("CalibrateGyroBias","ResetGyroBias")})
+        from .native.viiper_tuning import FIELDS as TUNING_FIELDS,field_values
+        self.capabilities.update({key:True for key in TUNING_FIELDS})
+        self.capabilities["ViiperGyroTuningReset"]=True
+        self.values.update(field_values(self.values))
+        from .native.stick_shaping import FIELDS,values
+        self.capabilities.update({key:True for key in FIELDS})
+        self.capabilities["ViiperStickTriggerReset"]=True
+        self.values.update(values(self.values.get("ViiperStickTriggerConfig","")))
         from .osd import editor_values
         level = self.values.get("OSDCustomizeLevel", self.store.get("OSDCustomizeLevel", 1))
         self.values["OSDCustomizeLevel"] = level
@@ -358,7 +512,9 @@ class Backend:
         return bool(self.capabilities.get(key))
 
     def validate(self, key, value):
-        ranges = {"AutoTDPTargetFPS": (15, 144), "AutoTDPMinTDP": (4, 35), "AutoTDPMaxTDP": (4, 35), "OSD": (0, 3), "HibernateTimeoutAC": (0, 1440), "HibernateTimeoutDC": (0, 1440), "StickyTDPInterval": (3, 15), "FPSLimit": (0, 144), "CPUEPP": (0, 100), "PanelBrightness": (0, 100),
+        from .native.viiper import validate_setting
+        validate_setting(key,value)
+        ranges = {"AutoTDPControllerType": (0, 2), "AutoTDPTargetFPS": (15, 144), "AutoTDPMinTDP": (4, 35), "AutoTDPMaxTDP": (4, 35), "OSD": (0, 3), "HibernateTimeoutAC": (0, 1440), "HibernateTimeoutDC": (0, 1440), "StickyTDPInterval": (3, 15), "FPSLimit": (0, 144), "CPUEPP": (0, 100), "PanelBrightness": (0, 100),
                   "TDP": (4, 35), "TDPBoostSPPT": (0, 10), "TDPBoostFPPT": (0, 15),
                   "PowerButtonActionAC": (0, 3), "PowerButtonActionDC": (0, 3), "OSPowerMode": (0, 2),
                   "DisplayTimeoutAC": (0, 86400), "DisplayTimeoutDC": (0, 86400),
@@ -388,7 +544,7 @@ class Backend:
             hid.bounded(value, *ranges[key])
         if key == "LegionPerformanceMode" and value not in (1, 2, 3, 255):
             raise ValueError("Invalid Lenovo performance mode")
-        boolean = {"AutoTDPEnabled", "AutoTDPPauseWhenUnfocused", "ScreenSaverEnabled", "HDREnabled", "PowerSourceProfile", "StickyTDPEnabled", "FPSLimitEnabled", "PerGameProfile", "CPUBoost", "TDPBoostEnabled", "LegionFanFullSpeed", "LegionChargeLimit", "LegionTouchpadEnabled", "LegionNintendoLayout", "LegionGyroInvertX", "LegionGyroInvertY"}
+        boolean = {"AutoTDPSyncFPSLimit","LegionHairTriggers","LegionPowerLight","AutoTDPEnabled", "AutoTDPPauseWhenUnfocused", "ScreenSaverEnabled", "HDREnabled", "PowerSourceProfile", "StickyTDPEnabled", "FPSLimitEnabled", "PerGameProfile", "CPUBoost", "TDPBoostEnabled", "LegionFanFullSpeed", "LegionChargeLimit", "LegionTouchpadEnabled", "LegionNintendoLayout", "LegionGyroInvertX", "LegionGyroInvertY"}
         if key in boolean and not isinstance(value, bool):
             raise ValueError(f"{key} requires a boolean")
         if key == "LegionFanCurveData":
@@ -400,8 +556,32 @@ class Backend:
 
     def apply(self, key, value):
         key = SYSTEM_ALIASES.get(key, key)
+        if self.read_only:raise RuntimeError("Diagnostic backend is read-only")
         if not self.supported(key):
             raise RuntimeError(f"{key} is unavailable or has not yet been ported")
+        if key in ("CalibrateGyroBias","ResetGyroBias"):
+            self.emulation.calibrate(key=="ResetGyroBias")
+            return Applied(True,False,"Gyro calibration requested")
+        from .native.viiper_tuning import FIELDS as TUNING_FIELDS,edit as edit_tuning,parse as parse_tuning,IDENTITY
+        if key in TUNING_FIELDS:
+            target,encoded=edit_tuning(self.values,key,value)
+            self.apply(target,encoded)
+            return Applied(value,True,"Preference saved")
+        if key=="ViiperGyroTuningReset":
+            source=self.values.get("ViiperGyroSource","Left")
+            if source=="None":source="Left"
+            for sensor in ("Gyro","Accel"):
+                field="Viiper"+sensor+"Tuning";config=parse_tuning(self.values.get(field,""));config[source]=IDENTITY
+                self.apply(field,'|'.join(name+'='+','.join(row) for name,row in config.items()))
+            return Applied(False,True,"Preference saved")
+        from .native.stick_shaping import FIELDS,edit
+        if key in FIELDS:
+            config=edit(self.values.get("ViiperStickTriggerConfig",""),key,value)
+            self.apply("ViiperStickTriggerConfig",config)
+            return Applied(value,True,"Preference saved")
+        if key=="ViiperStickTriggerReset":
+            self.apply("ViiperStickTriggerConfig","")
+            return Applied(False,True,"Preference saved")
         self.validate(key, value)
         if key in ("StickyTDPEnabled", "AutoTDPEnabled") and value and self.values.get("LegionPerformanceMode") != 255:
             raise RuntimeError("Select Custom TDP mode before enabling Sticky TDP")
@@ -417,7 +597,23 @@ class Backend:
             if key == "LegionPerformanceMode" and value != 255:
                 self.values["StickyTDPEnabled"] = False
             return Applied(value, False, "Preview only; no hardware write")
-        if key == "OSDCustomizeLevel":
+        from .native.viiper import DEFAULTS as VIIPER_DEFAULTS, selected_type
+        if key in ("InstallUsbip","InstallHidHide","InstallRtss"):
+            from .native.dependencies import install,status
+            install(key.removeprefix("Install"),self.store.directory)
+            self.values["Dependencies"]=status()
+            return Applied(True,True,"Installed")
+        elif key in VIIPER_DEFAULTS or key == "ControllerEmulationEnabled":
+            proposed={**self.values,key:value}
+            if key == "ControllerEmulationEnabled":
+                if value:self.emulation.start(selected_type(proposed),proposed)
+                else:self.emulation.stop()
+            elif self.values.get("ControllerEmulationEnabled"):
+                if key in ("ViiperDeviceType","ViiperSonySubDevice","ViiperSteamSubDevice","ViiperNintendoSubDevice","ViiperInputSource","ViiperGyroSource","ViiperMirrorLightbarToStick","ViiperJoyconGyroPerHalf","ViiperStickGyroEnabled","ViiperGyroBias"):
+                    self.emulation.start(selected_type(proposed),proposed)
+                else:self.emulation.configure(proposed)
+            result=Applied(value,True,"Preference saved")
+        elif key == "OSDCustomizeLevel":
             if type(value) is not int or value not in (1,2,3):
                 raise ValueError("Invalid OSD level")
             result = Applied(value, True, "Preference saved")
@@ -428,15 +624,26 @@ class Backend:
             result = Applied(value, True, "Preference saved")
         elif key in LOCAL_KEYS:
             result = Applied(value, True, "Preference saved")
+        elif key == "AutoTDPResetML":
+            learner = self.learning_controller()
+            if learner:
+                learner.reset()
+                self.values.update({"AutoTDPMLUpdates":0,"AutoTDPMLExploration":30,"AutoTDPMLAverageReward":0})
+            self.auto = AutoTdp()
+            return Applied(False,True,"Learning data reset")
         elif key in AUTO_DEFAULTS:
-            if key == "AutoTDPControllerType" and value != 0:
-                raise ValueError("This build supports the PID controller only")
             if key == "AutoTDPEnabled" and value and self.values.get("LegionPerformanceMode") != 255:
                 raise ValueError("Select Custom TDP mode before enabling Auto TDP")
             if key == "AutoTDPEnabled" and not value and self.auto_active:
                 if self.wmi.get("LegionPerformanceMode") == 255:
                     self.auto_power(self.values["TDP"])
                 self.auto_active = False
+            proposed={**self.values,key:value}
+            sync=proposed.get('AutoTDPSyncFPSLimit') and proposed.get('AutoTDPEnabled')
+            if sync or self.fps_sync.previous is not None:
+                if not self.supported('FPSLimit'):raise RuntimeError('RTSS frame limiter is unavailable')
+                actual=self.fps_sync.update(sync,proposed['AutoTDPTargetFPS'],self.rtss)
+                if actual is not None:self.values.update(FPSLimit=actual,FPSLimitEnabled=actual>0)
             self.auto = AutoTdp()
             result = Applied(value, True, "Preference saved")
         elif key in ("OSD", "OSDConfig"):
@@ -482,7 +689,7 @@ class Backend:
             result = Applied(self.power.set(field, value, ac, subgroup))
         elif key == "OSPowerMode":
             result = Applied(self.power.set_mode(value))
-        elif key in FEATURES or key in ("LegionPerformanceMode", "PanelBrightness", "LegionFanCurveData"):
+        elif key in FEATURES or key in ("LegionPowerLight", "LegionPerformanceMode", "PanelBrightness", "LegionFanCurveData"):
             result = Applied(self.wmi.set(key, value))
         elif key == "HDREnabled":
             result = Applied(self.hdr.set(value))
@@ -538,6 +745,8 @@ class Backend:
 
     @staticmethod
     def hid_commands(key, value, settings):
+        if key=="LegionHairTriggers":
+            return [hid.trigger(side,0 if value else settings[f"Legion{name}TriggerStart"],1 if value else settings[f"Legion{name}TriggerEnd"]) for side,name in ((hid.LEFT,"Left"),(hid.RIGHT,"Right"))]
         if key.startswith("LegionLight"):
             if key != "LegionLightMode" and settings["LegionLightMode"] == 0:
                 return []
@@ -560,7 +769,7 @@ class Backend:
             return [hid.deadzone(hid.LEFT if "Left" in key else hid.RIGHT, value)]
         if key.startswith(("LegionLeftTrigger", "LegionRightTrigger")):
             side = "Left" if "Left" in key else "Right"
-            return [hid.trigger(hid.LEFT if side == "Left" else hid.RIGHT, settings[f"Legion{side}TriggerStart"], settings[f"Legion{side}TriggerEnd"])]
+            return [hid.trigger(hid.LEFT if side == "Left" else hid.RIGHT, 0 if settings.get("LegionHairTriggers") else settings[f"Legion{side}TriggerStart"],1 if settings.get("LegionHairTriggers") else settings[f"Legion{side}TriggerEnd"])]
         if key == "Settings_LegionControllerSleepMinutes":
             return [hid.report(6, 0x33, 1, side, value, 1) for side in (hid.LEFT, hid.RIGHT)]
         if key in ("LegionJoystickAsMouseMode", "LegionJoystickMouseSens"):
@@ -580,6 +789,16 @@ class Backend:
         raise ValueError(f"No HID protocol implementation for {key}")
 
     def close(self):
+        self.presentmon.close()
+        if self.emulation and not self.read_only:
+            try:self.emulation.stop()
+            except Exception as error:self.values["MaintenanceError"]=str(error)
+        if self.learned_games:
+            try:self.learned_games.save(force=True)
+            except OSError as error:self.values["MaintenanceError"]=str(error)
+        for learner in self.learners.values():
+            try:learner.save()
+            except OSError as error:self.values["MaintenanceError"] = str(error)
         if self.auto_active and self.wmi:
             try:
                 if self.wmi.get("LegionPerformanceMode") == 255:
@@ -588,6 +807,9 @@ class Backend:
                 self.values["MaintenanceError"] = f"Auto TDP restore: {exc}"
             finally:
                 self.auto_active = False
+        if self.fps_sync.previous is not None and self.rtss and not self.read_only:
+            try:self.fps_sync.update(False,0,self.rtss)
+            except Exception as error:self.values["MaintenanceError"]=str(error)
         if self.rtss_memory:
             self.rtss_memory.close()
         if self.amd:

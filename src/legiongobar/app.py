@@ -5,6 +5,7 @@ import json
 import sys
 import tempfile
 import hashlib
+import time
 from pathlib import Path
 
 from .storage import Store
@@ -19,9 +20,9 @@ def build_parser():
     parser.add_argument("--diagnostic-output", type=Path, help="Save read-only diagnostic JSON without requiring a console")
     parser.add_argument("--data-dir", type=Path, help="Override local settings directory")
     parser.add_argument("--no-tray", action="store_true")
-    parser.add_argument("--screenshot", type=Path, help="Capture a preview and exit (forces --demo)")
+    parser.add_argument("--screenshot", type=Path, help="Capture the selected mode after discovery and exit (read-only)")
     parser.add_argument("--tab", default="Quick")
-    parser.add_argument("--smoke", action="store_true", help="Render all pages offscreen and exit (forces --demo)")
+    parser.add_argument("--smoke", action="store_true", help="Render all pages in the selected mode and exit (read-only)")
     parser.add_argument("--windowed", "--debug-window", action="store_true", help="Use the standard window frame for debugging")
     parser.add_argument("--lang", type=normalize_language,
                         choices=("auto", "zh_CN", "en_US"), help="Interface language: auto, zh-CN or en-US")
@@ -30,11 +31,10 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
-    if args.screenshot or args.smoke:
-        args.demo = True
+    capture_requested = bool(args.screenshot or args.smoke)
     temporary = tempfile.TemporaryDirectory(prefix="LegionGoBar-preview-", ignore_cleanup_errors=True) if args.demo and not args.data_dir else None
     store = Store(args.data_dir or (Path(temporary.name) if temporary else None))
-    backend = Backend(store, args.demo)
+    backend = Backend(store, args.demo, read_only=bool(args.diagnose or args.diagnostic_output or capture_requested))
     if args.diagnose or args.diagnostic_output:
         try:
             snapshot = backend.discover()
@@ -49,6 +49,8 @@ def main(argv=None):
                 snapshot["runtime_checks"] = {"atomic_shared_buffer": True}
             except Exception as exc:
                 snapshot["runtime_checks"] = {"atomic_shared_buffer": False, "error": str(exc)}
+            from .native.diagnostics import probe
+            snapshot["runtime_checks"].update(probe())
             result = json.dumps(snapshot, ensure_ascii=False, indent=2)
             if args.diagnostic_output:
                 args.diagnostic_output.parent.mkdir(parents=True, exist_ok=True)
@@ -67,7 +69,7 @@ def main(argv=None):
     configure_font(app)
     app.setApplicationName("LegionGoBar")
     server = None
-    if not args.demo:
+    if not args.demo and not capture_requested:
         from PySide6.QtNetwork import QLocalServer, QLocalSocket
         name = "LegionGoBar-" + hashlib.sha256(str(store.directory.resolve()).encode()).hexdigest()[:16]
         socket = QLocalSocket()
@@ -86,6 +88,10 @@ def main(argv=None):
     language = I18n(args.lang or store.get("Language", "auto"), app)
     window = Window(backend, store, no_tray=args.no_tray or args.smoke or bool(args.screenshot),
                     windowed=args.windowed, i18n=language)
+    if capture_requested:
+        # 截图沿用真实检测结果，但不执行配置切换、维护或设备写入。
+        window.timer.stop()
+        window.gamepad_timer.stop()
     window.show()
     if server:
         def connected():
@@ -95,7 +101,7 @@ def main(argv=None):
             window.reveal()
         server.newConnection.connect(connected)
     from .ui.hotkey import Hotkey
-    hotkey = Hotkey(app, window.reveal) if not args.demo else None
+    hotkey = Hotkey(app, window.reveal) if not args.demo and not capture_requested else None
     window.hotkey_manager = hotkey
     if hotkey:
         try:
@@ -103,14 +109,22 @@ def main(argv=None):
         except (ValueError, OSError) as exc:
             window.i18n.bind(window.status, "Failed: {error}", error=str(exc))
     errors = []
+    capture_deadline = time.monotonic() + 45
 
     def capture():
+        if window.jobs and time.monotonic() < capture_deadline:
+            QTimer.singleShot(100, capture)
+            return
         try:
+            if window.jobs:
+                raise TimeoutError("Device discovery did not finish before capture")
+            if not window.discovery_complete:
+                raise RuntimeError("Device discovery failed: " + window.status.text())
             if args.smoke:
                 for key in window.tab_ids:
                     window.select(key)
                     app.processEvents()
-                print(json.dumps({"tabs": window.tab_ids, "rendered_controls": len(window.renderer.rendered), "reference_controls": len(window.reference["controls"])}))
+                print(json.dumps({"demo": backend.demo, "tabs": window.tab_ids, "rendered_controls": len(window.renderer.rendered), "reference_controls": len(window.reference["controls"])}))
             else:
                 window.select(args.tab)
                 app.processEvents()
@@ -119,6 +133,10 @@ def main(argv=None):
                 args.screenshot.parent.mkdir(parents=True, exist_ok=True)
                 if not window.grab().save(str(args.screenshot)):
                     raise OSError("Could not save screenshot")
+                from . import __version__
+                metadata = {"version": __version__, "executable": sys.executable,
+                            "tab": args.tab, "snapshot": window.snapshot}
+                args.screenshot.with_suffix(".json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception as exc:
             errors.append(str(exc))
             print(str(exc), file=sys.stderr)

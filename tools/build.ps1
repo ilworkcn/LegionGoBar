@@ -11,7 +11,7 @@ try {
     & $resolvedPython "$PSScriptRoot/collect_notices.py" "$repoRoot/reference/licenses"
     if ($LASTEXITCODE -ne 0) { throw "Dependency notice collection failed" }
     & $resolvedPython -m PyInstaller --noconfirm --clean --windowed --onedir --name LegionGoBar `
-        --collect-all atomics --paths "$repoRoot/src" --distpath $DistPath --workpath $WorkPath --specpath $WorkPath `
+        --collect-all atomics --collect-submodules winrt --paths "$repoRoot/src" --distpath $DistPath --workpath $WorkPath --specpath $WorkPath `
         --add-data "$repoRoot/src/legiongobar/assets/reference.json;legiongobar/assets" `
         --add-data "$repoRoot/src/legiongobar/locales;legiongobar/locales" `
         --add-data "$repoRoot/src/legiongobar/assets/theme.qss;legiongobar/assets" `
@@ -19,6 +19,9 @@ try {
         --add-data "$repoRoot/src/legiongobar/assets/ui;legiongobar/assets/ui" `
         --add-data "$repoRoot/src/legiongobar/assets/fonts;legiongobar/assets/fonts" `
         --add-binary "$repoRoot/src/legiongobar/assets/native/ADLXCSharpBind.dll;legiongobar/assets/native" `
+        --add-binary "$repoRoot/src/legiongobar/assets/native/GamepadMotion.dll;legiongobar/assets/native" `
+        --add-binary "$repoRoot/src/legiongobar/assets/native/PresentMon.exe;legiongobar/assets/native" `
+        --add-binary "$repoRoot/src/legiongobar/assets/native/libviiper.dll;legiongobar/assets/native" `
         --add-data "$repoRoot/reference;reference" --add-data "$repoRoot/THIRD-PARTY-NOTICES.md;." --add-data "$repoRoot/LICENSE;." "$repoRoot/tools/entrypoint.py"
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed with exit code $LASTEXITCODE" }
     & $resolvedPython "$PSScriptRoot/fix_qt_runtime.py" (Join-Path $DistPath "LegionGoBar")
@@ -27,6 +30,9 @@ try {
     $docOutput = Join-Path $DistPath "LegionGoBar/docs"
     New-Item -ItemType Directory -Force -Path $docOutput | Out-Null
     Copy-Item -Path "$repoRoot/docs/*" -Destination $docOutput -Recurse -Force
+    '@echo off
+start "" "%~dp0LegionGoBar.exe"
+' | Set-Content -LiteralPath (Join-Path $DistPath "LegionGoBar/Start.cmd") -Encoding ascii
     '@echo off
 "%~dp0LegionGoBar.exe" --demo
 ' | Set-Content -LiteralPath (Join-Path $DistPath "LegionGoBar/Preview.cmd") -Encoding ascii

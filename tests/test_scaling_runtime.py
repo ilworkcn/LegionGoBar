@@ -62,7 +62,7 @@ def test_missing_settings_can_still_launch(scaling,monkeypatch):
     monkeypatch.setattr(module,'find_executable',lambda:scaling.path.parent/'LosslessScaling.exe')
     caps,values=scaling.discover()
     assert caps['LosslessScalingLaunch']
-    assert 'LosslessScalingSaveAndRestart' not in caps
+    assert not caps['LosslessScalingSaveAndRestart']
     assert not values['LosslessScalingEnabled']
 
 def test_creation_conflict_and_relative_path(scaling):
@@ -105,3 +105,42 @@ def test_scaling_reused_window_does_not_inject(scaling,monkeypatch):
     monkeypatch.setattr(module,'send_hotkey',lambda keys:sent.append(keys))
     with pytest.raises(RuntimeError,match='no longer available'):scaling.set_enabled(True)
     assert sent==[] and not scaling.enabled
+
+
+def test_localized_default_and_current_xml_roundtrip(scaling):
+    scaling.path.write_text("""<Settings><GameProfiles><Profile><Title>默认</Title>
+    <ScalingMode>Auto</ScalingMode><ScalingFitMode>AspectRatio</ScalingFitMode>
+    <Anime4kType>S</Anime4kType><VRS>false</VRS><Sharpness>5</Sharpness>
+    <Unknown>preserved</Unknown></Profile></GameProfiles></Settings>""", encoding="utf-8")
+    caps, values = scaling.discover()
+    assert values['LosslessScalingCurrentProfile'] == '默认'
+    assert values['LosslessScalingScaleMode'] == 'Auto'
+    assert values['LosslessScalingAspectRatio'] == 'Aspect Ratio'
+    assert values['LosslessScalingAnime4KSize'] == 'Small'
+    assert caps['LosslessScalingScaleMode'] and caps['LosslessScalingAnime4KVRS']
+    scaling.stage('LosslessScalingScaleMode', 'Custom')
+    scaling.stage('LosslessScalingAspectRatio', 'Fullscreen')
+    scaling.stage('LosslessScalingAnime4KSize', 'Large')
+    scaling.stage('LosslessScalingAnime4KVRS', True)
+    scaling.save()
+    profile = scaling.profile(ET.fromstring(scaling.path.read_bytes()))
+    assert profile.findtext('ScalingMode') == 'Custom'
+    assert profile.findtext('ScalingFitMode') == 'Fullscreen'
+    assert profile.findtext('Anime4kType') == 'L'
+    assert profile.findtext('VRS') == 'true'
+    assert profile.findtext('Unknown') == 'preserved'
+    assert profile.find('ScaleMode') is None and profile.find('Anime4KVRS') is None
+    scaling.create_profile('游戏', r'C:\Games\example.exe')
+    assert scaling.select_game(r'C:\Games\other.exe')
+    caps, values = scaling.discover()
+    assert values['LosslessScalingCurrentProfile'] == '默认'
+
+
+def test_invalid_xml_retains_launch_and_reports_failure(scaling, monkeypatch):
+    monkeypatch.setattr(module, 'find_executable', lambda: scaling.path.parent/'LosslessScaling.exe')
+    scaling.path.write_text('<Settings>')
+    caps, values = scaling.discover()
+    assert caps['LosslessScalingLaunch']
+    assert not caps['LosslessScalingSharpness']
+    assert values['LosslessScalingError']
+    assert values['LosslessScalingStatus'] == 'Lossless Scaling settings could not be read'

@@ -15,5 +15,19 @@
   "Scaling hotkey sent; state follows commands from this app": "Scaling hotkey sent; state follows commands from this app",
   "Running": "Running",
   "Installed · stopped": "Installed · stopped",
-  "Scale": "Scale"
+  "Scale": "Scale",
+  "Updates: {updates} | Avg: {average:.1f} | Exploration: {exploration}%": "Updates: {updates} | Avg: {average:.1f} | Exploration: {exploration}%",
+  "Learning data reset": "Learning data reset",
+  "Learning fallback to PID": "Learning fallback to PID",
+  "Learning power control": "Learning power control",
+  "{power} W at {fps} FPS · Confidence {confidence}% · {count} observations": "{power} W at {fps} FPS · Confidence {confidence}% · {count} observations",
+  "Learning file could not be loaded; original data preserved": "Learning file could not be loaded; original data preserved",
+  "Optimizing ceiling power": "Optimizing ceiling power",
+  "Restoring ceiling power": "Restoring ceiling power",
+  "Ceiling power stable": "Ceiling power stable",
+  "Unavailable": "Unavailable",
+  "Start Lossless Scaling once to create its settings": "Start Lossless Scaling once to create its settings",
+  "Lossless Scaling settings could not be read": "Lossless Scaling settings could not be read",
+  "Lossless Scaling connected": "Lossless Scaling connected",
+  "Lossless Scaling executable was not found": "Lossless Scaling executable was not found"
 }

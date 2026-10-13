@@ -30,8 +30,34 @@ class SharedBuffer:
             elapsed=(end-start)&0xffffffff
             if not start or not elapsed or ((now_ms-end)&0xffffffff)>3000:continue
             name=bytes(self.buffer[offset+4:offset+264]).split(b'\0',1)[0].decode('mbcs',errors='replace')
-            result.append({'pid':pid,'name':name,'fps':1000*frames/elapsed,'frame_ms':frame_us/1000,'flags':flags})
+            sample={'pid':pid,'name':name,'fps':1000*frames/elapsed,'frame_ms':frame_us/1000,'flags':flags}
+            # SDK v2.5 起提供 1024 帧环形缓冲；原版统计最近 256 帧。
+            if self.version>=0x20005 and self.app_size>=5028:
+                position=struct.unpack_from('<I',self.buffer,offset+5020)[0]
+                ring=struct.unpack_from('<1024I',self.buffer,offset+924)
+                after=struct.unpack_from('<I',self.buffer,offset+5020)[0]
+                if position==after:
+                    frames_ms=[ring[(position-256+i)%1024]/1000 for i in range(256)]
+                    valid=[value for value in frames_ms if .1<value<1000]
+                    if valid:
+                        sample.update(frame_times=frames_ms,frame_min=min(valid),frame_max=max(valid),
+                                      frame_avg=sum(valid)/len(valid),frame_variance=max(valid)-min(valid))
+            result.append(sample)
         return result
+
+    @staticmethod
+    def graphs(text):
+        import re
+        objects=bytearray()
+        def replace(match):
+            frametime=match[0] in ("<G=<FT>>","<G=%Frametime%>")
+            offset=len(objects)
+            # 与原版 EmbedGraphInBuffer 一致：36 字节头、无自定义数据，RTSS 填充自身采样。
+            objects.extend(struct.pack('<IIiiiIffI',0x47523030,36,-32,-2,1,4 if frametime else 2,0.,50000. if frametime else 200.,0))
+            return f'<OBJ={offset:08X}>'
+        converted=re.sub(r'<G=(?:<FT>|<FR>|%Frametime%|%Framerate%)>',replace,text)
+        if len(objects)>262144:raise ValueError('RTSS graph buffer is full')
+        return converted,objects
 
     def publish(self, owner, text):
         owner=owner.encode('ascii')
@@ -48,11 +74,17 @@ class SharedBuffer:
             if own is None:raise OSError('No free RTSS OSD slot')
             extended=self.version>=0x20007 and self.osd_size>=4608
             size=4096 if extended else 256
+            graphics=bytearray()
+            if self.version>=0x2000c and self.osd_size>=266752:text,graphics=self.graphs(text)
             encoded=text.encode('mbcs',errors='replace')
             if len(encoded)>=size:raise ValueError('OSD text is too long')
             self.buffer[own+256:own+512]=owner.ljust(256,b'\0')
             start=own+512 if extended else own
             self.buffer[start:start+size]=encoded.ljust(size,b'\0')
+            if self.version>=0x2000c and self.osd_size>=266752:
+                self.buffer[own+4608:own+266752]=bytes(graphics).ljust(262144,b'\0')
+        if text is None and self.version>=0x2000c and self.osd_size>=266752:
+            self.buffer[own+4608:own+266752]=bytes(262144)
         if self.version >= 0x20014 and self.osd_size >= 299520:
             self.buffer[own+266752:own+299520]=bytes(32768)
         struct.pack_into('<I',self.buffer,32,(struct.unpack_from('<I',self.buffer,32)[0]+1)&0xffffffff)

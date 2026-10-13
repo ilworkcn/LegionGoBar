@@ -9,7 +9,7 @@ QPushButton, QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox { background: #3E434
 QPushButton:hover, QComboBox:hover { background: #484E58; }
 QPushButton:pressed { background: #3A3F47; }
 QPushButton:focus, QComboBox:focus, QLineEdit:focus, QCheckBox:focus { border: 2px solid white; }
-QWidget:disabled { color: #8E9298; }
+QWidget:disabled { color: #AEB4BC; }
 QPushButton:disabled, QComboBox:disabled { background: #2C3035; border-color: #3A3F46; }
 QComboBox { padding-right: 6px; }
 QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; border: none; width: 28px; }

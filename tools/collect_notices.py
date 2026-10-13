@@ -7,7 +7,7 @@ import sys
 
 def collect(output):
     output = Path(output)
-    for name in ("PySide6-Essentials", "shiboken6", "psutil", "hidapi", "pywin32", "pyinstaller", "atomics", "cffi", "pycparser"):
+    for name in ("winrt-Windows.Devices.Sensors", "winrt-Windows.Foundation", "winrt-runtime", "typing_extensions", "PySide6-Essentials", "shiboken6", "psutil", "hidapi", "pywin32", "pyinstaller", "atomics", "cffi", "pycparser"):
         distribution = metadata.distribution(name)
         for file in distribution.files or []:
             if "/licenses/" in str(file).lower() or file.name.upper().startswith(("LICENSE", "COPYING", "NOTICE")):

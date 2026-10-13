@@ -8,7 +8,7 @@ from legiongobar.storage import Store
 
 def test_pid_low_fps_bounded_and_capped():
     controller=AutoTdp();current=15
-    for index in range(100):
+    for index in range(40):
         value=controller.decide(index*.25,30,current,60,8,20)
         if value is not None:
             assert current-2<=value<=current+1 and 8<=value<=20

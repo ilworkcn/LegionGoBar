@@ -54,6 +54,7 @@ class Window(QMainWindow):
             self.setWindowFlag(Qt.FramelessWindowHint)
         self.i18n.changed.connect(self.retranslate)
         self.reference = load_reference()
+        self.discovery_complete = False
         self.snapshot = {"capabilities": {}, "values": {}, "demo": backend.demo}
         self.renderer = Renderer(self.reference, self.apply_setting, self.action, self.i18n)
         self.pool = QThreadPool(self)
@@ -100,7 +101,8 @@ class Window(QMainWindow):
         footer.addWidget(self.metrics, 1)
         self.device = self.i18n.bind(QLabel(), "Detecting device…")
         self.device.setProperty("role", "caption")
-        self.device.setWordWrap(True)
+        self.device.setWordWrap(False)
+        self.device.setMaximumWidth(245)
         self.metrics.setWordWrap(True)
         footer.addWidget(self.device)
         if not windowed:
@@ -112,6 +114,7 @@ class Window(QMainWindow):
         layout.addWidget(self.status)
         self.select("Quick")
         self.submit(backend.discover, self.discovered)
+        self.next_metrics_update = 0.0
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
         self.timer.start(250)
@@ -149,8 +152,11 @@ class Window(QMainWindow):
         self.refresh_quick()
 
     def discovered(self, snapshot):
+        self.discovery_complete = True
         self.snapshot = snapshot
-        self.i18n.bind(self.device, snapshot["values"].get("DeviceDisplayName", "Unknown device"))
+        device_name = snapshot["values"].get("DeviceDisplayName", "Unknown device")
+        self.device.setToolTip(device_name)
+        self.device.setText(self.device.fontMetrics().elidedText(self.i18n.text(device_name), Qt.ElideRight, 245))
         self.renderer.update(snapshot)
         self.refresh_quick()
         supported = sum(bool(v) for v in snapshot["capabilities"].values())
@@ -158,7 +164,7 @@ class Window(QMainWindow):
         self.enable_actions()
 
     def enable_actions(self):
-        for name,key in (("LosslessScalingSaveSettingsButton","LosslessScalingSaveAndRestart"),
+        for name,key in (("CalibrateGyroBiasButton","CalibrateGyroBias"),("ViiperStickGyroCalibrateButton","CalibrateGyroBias"),("ResetGyroBiasButton","ResetGyroBias"),("ViiperGyroTuningResetButton","ViiperGyroTuningReset"),("SetupInstallUsbipButton","InstallUsbip"),("UsbipInstallButton","InstallUsbip"),("SetupInstallHidHideButton","InstallHidHide"),("SetupInstallRtssButton","InstallRtss"),("ViiperStickTriggerResetButton","ViiperStickTriggerReset"),("AutoTDPResetMLButton","AutoTDPResetML"), ("LosslessScalingSaveSettingsButton","LosslessScalingSaveAndRestart"),
                          ("LaunchLosslessScalingButton","LosslessScalingLaunch"),
                          ("ShowLosslessScalingWindowButton","LosslessScalingBringToForeground"),
                          ("LosslessScalingCreateProfileButton","LosslessScalingCreateProfile"),
@@ -178,6 +184,13 @@ class Window(QMainWindow):
                 widget = self.renderer.render(self.reference["pages"][key], parent=self.pages)
                 self.renderer.update(self.snapshot)
                 self.enable_actions()
+            if key == "Scaling":
+                status = QLabel(widget)
+                status.setWordWrap(True)
+                status.setObjectName("LosslessScalingStatusLabel")
+                self.renderer.named["LosslessScalingStatusLabel"] = status
+                widget.widget().layout().insertWidget(0, status)
+                self.renderer.update(self.snapshot)
             if key == "System":
                 self.add_language_settings(widget)
             self.page_widgets[key] = widget
@@ -404,6 +417,10 @@ class Window(QMainWindow):
             button.setEnabled(self.quick_editing or (enabled and key not in self.busy))
             value = values.get(key)
             text = "Open" if key == "OnScreenKeyboard" else labels[options.index(value)] if value in options else "--"
+            if key == "CPUEPP" and isinstance(value, (int, float)):
+                text = f"{value:g}"
+            if not enabled:
+                text = "Unavailable"
             button.visual_state = "trigger" if key == "OnScreenKeyboard" else "active" if key in ("LegionPerformanceMode", "CPUEPP") else "on" if value else "off"
             if self.quick_editing and key in self.store.get("quick_hidden", []):
                 text = "Hidden"
@@ -495,7 +512,7 @@ class Window(QMainWindow):
         self.submit(operation, finish)
 
     def action(self, name):
-        actions = {"LosslessScalingSaveSettingsButton":"LosslessScalingSaveAndRestart",
+        actions = {"CalibrateGyroBiasButton":"CalibrateGyroBias","ViiperStickGyroCalibrateButton":"CalibrateGyroBias","ResetGyroBiasButton":"ResetGyroBias","ViiperGyroTuningResetButton":"ViiperGyroTuningReset","SetupInstallUsbipButton":"InstallUsbip","UsbipInstallButton":"InstallUsbip","SetupInstallHidHideButton":"InstallHidHide","SetupInstallRtssButton":"InstallRtss","AutoTDPResetMLButton":"AutoTDPResetML", "ViiperStickTriggerResetButton":"ViiperStickTriggerReset", "LosslessScalingSaveSettingsButton":"LosslessScalingSaveAndRestart",
                    "LaunchLosslessScalingButton":"LosslessScalingLaunch",
                    "ShowLosslessScalingWindowButton":"LosslessScalingBringToForeground",
                    "LosslessScalingResetProfileButton":"LosslessScalingResetProfile"}
@@ -510,6 +527,9 @@ class Window(QMainWindow):
             self.i18n.bind(self.status, "{name}: unavailable", name=name)
 
     def maintenance_done(self, snapshot):
+        wake=snapshot["values"].get("OverlayWakeCount",0)
+        if wake>getattr(self,"overlay_wake_count",0):self.reveal()
+        self.overlay_wake_count=wake
         if snapshot == self.snapshot:
             return
         self.snapshot = snapshot
@@ -522,7 +542,10 @@ class Window(QMainWindow):
     def tick(self):
         data = telemetry()
         battery = f"{data['BatteryLevel']}%" if data["BatteryLevel"] is not None else "--"
-        self.i18n.bind(self.metrics, "CPU {cpu}%  ·  RAM {ram}%  ·  Battery {battery}", cpu=data["CPUUsage"], ram=data["MemoryUsage"], battery=battery)
+        now = time.monotonic()
+        if now >= self.next_metrics_update:
+            self.next_metrics_update = now + 1.0
+            self.i18n.bind(self.metrics, "CPU {cpu}%  ·  RAM {ram}%  ·  Battery {battery}", cpu=data["CPUUsage"], ram=data["MemoryUsage"], battery=battery)
         if not self.backend.demo and not self.jobs and not self.busy and not self.exit_requested:
             plan = self.profiles.plan(foreground(), data["ACConnected"], self.snapshot, own_path=sys.executable)
             if plan:

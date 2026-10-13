@@ -34,6 +34,7 @@ class Adlx:
         self.interfaces = []
         self.features = {}
         self.color = None
+        self.monitor = self.gpu = None
         self.color_ranges = {}
         self.field_ranges = {}
 
@@ -78,6 +79,11 @@ class Adlx:
             services = self.out_pointer("IADLXSystem_Get3DSettingsServices", system)
             gpu_list = self.out_pointer("IADLXSystem_GetGPUs", system)
             gpu = self.out_pointer("IADLXGPUList_At", gpu_list, 0, types=[C.c_void_p, C.c_uint])
+            self.gpu = gpu
+            try:
+                self.monitor = self.out_pointer("IADLXSystem_GetPerformanceMonitoringServices",system)
+            except (RuntimeError,AttributeError):
+                self.monitor = None
             capabilities, values = {}, {}
             for prefix, (interface, getter, needs_gpu) in FEATURES.items():
                 try:
@@ -231,6 +237,27 @@ class Adlx:
                 raise RuntimeError(f"{error}; restore failed: {restore}") from error
             raise
         return actual
+
+    def metrics(self):
+        if not self.monitor or not self.gpu:return {}
+        pointer = C.c_void_p()
+        self.check(self.call("IADLXPerformanceMonitoringServices_GetCurrentGPUMetrics",
+                            [self.monitor,self.gpu,C.byref(pointer)], [C.c_void_p,C.c_void_p,C.POINTER(C.c_void_p)]))
+        if not pointer.value:raise RuntimeError("ADLX metrics returned null")
+        values = {}
+        try:
+            for key,field,kind in (("GPUUsage","GPUUsage",C.c_double),("GPUClock","GPUClockSpeed",C.c_int),
+                                   ("GPUTemperature","GPUTemperature",C.c_double),("GPUPower","GPUPower",C.c_double),
+                                   ("VRAMUsage","GPUVRAM",C.c_int),("VRAMClock","GPUVRAMClockSpeed",C.c_int)):
+                value = kind()
+                result = self.call("IADLXGPUMetrics_"+field,[pointer,C.byref(value)],[C.c_void_p,C.POINTER(kind)])
+                if result == 0:
+                    import math
+                    if math.isfinite(value.value) and value.value>=0:values[key]=round(value.value,1)
+            return values
+        finally:
+            # 每次采样单独释放接口，不能塞进生命周期列表造成持续增长。
+            self.call("IADLXInterface_Release",[pointer],[C.c_void_p])
 
     def close(self):
         for pointer in reversed(self.interfaces):

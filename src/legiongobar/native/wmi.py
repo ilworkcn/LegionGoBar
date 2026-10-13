@@ -70,6 +70,10 @@ class LenovoWmi:
             return False
 
     def get(self, function):
+        if function=="LegionPowerLight":
+            value=int(invoke("LENOVO_LIGHTING_METHOD","Get_Lighting_Current_Status",{"Lighting_ID":4})["Current_Brightness_Level"])
+            if value not in (1,2):raise RuntimeError("Unsupported power light firmware response")
+            return value==2
         if function == "LegionFanCurveData":
             data = bytes(invoke("LENOVO_FAN_METHOD", "Fan_Get_Table")["FanTable"])
             if len(data) < 26:
@@ -83,7 +87,10 @@ class LenovoWmi:
         return bool(value) if function in ("LegionFanFullSpeed", "LegionChargeLimit") else value
 
     def set(self, function, value):
-        if function == "LegionPerformanceMode":
+        if function=="LegionPowerLight":
+            if type(value) is not bool:raise ValueError("Power light requires boolean")
+            invoke("LENOVO_LIGHTING_METHOD","Set_Lighting_Current_Status",{"Lighting_ID":4,"Current_State_Type":0,"Current_Brightness_Level":2 if value else 1})
+        elif function == "LegionPerformanceMode":
             invoke("LENOVO_GAMEZONE_DATA", "SetSmartFanMode", {"Data": value})
         elif function == "PanelBrightness":
             invoke("WmiMonitorBrightnessMethods", "WmiSetBrightness", {"Timeout": 0, "Brightness": value})

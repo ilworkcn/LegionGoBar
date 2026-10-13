@@ -63,7 +63,7 @@ def test_rtss_samples_reject_stale_data_and_invalid_offsets():
 
 def test_osd_config_and_text_no_invented_metrics():
     text=render(1,'L1:FPS,Battery;TextSize:150',{'BatteryLevel':None},{})
-    assert '<FR> FPS' in text and 'Battery' in text and '--' in text
+    assert '<FR> FPS' in text and 'BATT' in text and '--' in text
     assert render(0,'',{}, {}) is None
     with pytest.raises(ValueError):parse('TextColor:<script>')
     with pytest.raises(ValueError):parse('L1_Columns:0')

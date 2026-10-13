@@ -24,6 +24,14 @@ def audit():
     implemented |= set(SYSTEM_ALIASES) | set(COLOR_FIELDS) | (set(AUTO_DEFAULTS) - {"AutoTDPControllerType"}) | {"HDREnabled", "OSD", "OSDConfig", "TileHotkeyConfig", "ProfileSaveFlags"}
     implemented |= {prefix + "Enabled" for prefix in AMD_FEATURES} | set(AMD_FIELDS) | {"AMDFluidMotionFrameEnabled"}
     implemented |= {"LosslessScaling" + name for name in LS_FIELDS} | LS_ACTIONS | {"LosslessScalingEnabled"}
+    from legiongobar.native.viiper import DEFAULTS as VIIPER_DEFAULTS
+    from legiongobar.native.stick_shaping import FIELDS as SHAPING_FIELDS
+    from legiongobar.native.viiper_tuning import FIELDS as TUNING_FIELDS
+    from legiongobar.osd import UI_FIELDS
+    implemented |= set(VIIPER_DEFAULTS) | set(SHAPING_FIELDS) | set(TUNING_FIELDS) | set(UI_FIELDS)
+    implemented |= {key.replace('Viiper','Viiper_',1) for key in VIIPER_DEFAULTS if key.startswith('Viiper')}
+    implemented |= {'ControllerEmulationEnabled','AutoTDPControllerType','AutoTDPResetML','CalibrateGyroBias','ResetGyroBias','LegionPowerLight',
+                    'Viiper_InstallUsbip','InstallUsbip','InstallHidHide','InstallRtss','ViiperGyroTuningReset','ViiperStickTriggerReset','OSDCustomizeLevel'}
     # 适配器存在、交互完整和硬件验证是三个不同的状态。
     controls = []
     for control in reference["controls"]:

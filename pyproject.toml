@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legiongobar"
-version = "0.4.0"
+version = "0.5.2"
 description = "Standalone Python desktop controls for Lenovo Legion Go"
 authors = [{name = "SUNNYQUAN"}]
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["atomics==1.0.3", "PySide6-Essentials>=6.8,<7", "psutil>=6,<8", "hidapi>=0.14,<1", "pywin32>=310; sys_platform == 'win32'"]
+dependencies = ["winrt-Windows.Devices.Sensors==3.2.1; sys_platform == 'win32'", "winrt-Windows.Foundation==3.2.1; sys_platform == 'win32'", "atomics==1.0.3", "PySide6-Essentials>=6.8,<7", "psutil>=6,<8", "hidapi>=0.14,<1", "pywin32>=310; sys_platform == 'win32'"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pyinstaller>=6"]
@@ -21,7 +21,7 @@ legiongobar = "legiongobar.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-legiongobar = ["locales/*.json", "assets/*.json", "assets/*.qss", "assets/glyphs/*.svg", "assets/ui/*.svg", "assets/native/*.dll", "assets/fonts/*.otf", "assets/fonts/*.txt"]
+legiongobar = ["locales/*.json", "assets/*.json", "assets/*.qss", "assets/glyphs/*.svg", "assets/ui/*.svg", "assets/native/*.dll", "assets/native/*.exe", "assets/fonts/*.otf", "assets/fonts/*.txt"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

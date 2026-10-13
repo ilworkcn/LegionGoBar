@@ -10,9 +10,9 @@
   "counts": {
     "reference_controls": 535,
     "reference_functions": 375,
-    "adapter_functions": 123,
-    "pending_or_local_presentation": 393,
-    "adapter_connected": 142
+    "adapter_functions": 168,
+    "pending_or_local_presentation": 305,
+    "adapter_connected": 230
   },
   "controls": [
     {
@@ -570,8 +570,8 @@
       "page": "Performance",
       "type": "CheckBox",
       "source_line": 1429,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "AutoTDPSyncFPSLimit",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -581,7 +581,7 @@
       "type": "ComboBox",
       "source_line": 1441,
       "function": "AutoTDPControllerType",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1261,7 +1261,7 @@
       "type": "ComboBox",
       "source_line": 3496,
       "function": "OSDCustomizeLevel",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1271,7 +1271,7 @@
       "type": "ComboBox",
       "source_line": 3526,
       "function": "OSDColumns",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1281,7 +1281,7 @@
       "type": "ComboBox",
       "source_line": 3554,
       "function": "OSDTextSize",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1290,8 +1290,8 @@
       "page": "System",
       "type": "CheckBox",
       "source_line": 3582,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "OSDTextColorDynamic",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1311,7 +1311,7 @@
       "type": "ColorPicker",
       "source_line": 3608,
       "function": "OSDTextColor",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1320,8 +1320,8 @@
       "page": "System",
       "type": "CheckBox",
       "source_line": 3632,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "OSDLabelColorDefault",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1341,7 +1341,7 @@
       "type": "ColorPicker",
       "source_line": 3658,
       "function": "OSDLabelColor",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1351,7 +1351,7 @@
       "type": "Slider",
       "source_line": 3687,
       "function": "OSDOpacity",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1370,8 +1370,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 3722,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "FrametimeGraphPinned",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1381,7 +1381,7 @@
       "type": "ToggleSwitch",
       "source_line": 3738,
       "function": "Osd24HourClock",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1421,7 +1421,7 @@
       "type": "TextBox",
       "source_line": 3806,
       "function": "OSDCustomTags",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1611,7 +1611,7 @@
       "type": "ToggleSwitch",
       "source_line": 4180,
       "function": "ControllerEmulationEnabled",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1621,7 +1621,7 @@
       "type": "ComboBox",
       "source_line": 4214,
       "function": "ControllerEmulationGyroActivationMode",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1631,7 +1631,7 @@
       "type": "ComboBox",
       "source_line": 4234,
       "function": "ControllerEmulationGyroActivationButton",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1641,7 +1641,7 @@
       "type": "ComboBox",
       "source_line": 4274,
       "function": "ControllerEmulationStickSelect",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1671,7 +1671,7 @@
       "type": "ToggleSwitch",
       "source_line": 4328,
       "function": "ControllerEmulationStickInvertY",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1681,7 +1681,7 @@
       "type": "ToggleSwitch",
       "source_line": 4340,
       "function": "ControllerEmulationStickInvertX",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1700,8 +1700,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4372,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperDeviceType",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1710,8 +1710,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4390,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperSteamSubDevice",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1720,8 +1720,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4404,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperSonySubDevice",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1730,8 +1730,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4413,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperNintendoSubDevice",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1740,8 +1740,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4434,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperJoyconGyroPerHalf",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1750,8 +1750,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4442,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperInputSource",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1760,8 +1760,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4448,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGyroSource",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1770,8 +1770,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4490,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGyroInvertX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1780,8 +1780,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4494,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGyroInvertY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1790,8 +1790,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4498,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGyroInvertZ",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1800,8 +1800,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4512,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGyroMatrixX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1810,8 +1810,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4518,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGyroMatrixY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1820,8 +1820,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4524,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGyroMatrixZ",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1830,8 +1830,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4542,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperAccelInvertX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1840,8 +1840,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4546,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperAccelInvertY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1850,8 +1850,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4550,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperAccelInvertZ",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1860,8 +1860,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4564,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperAccelMatrixX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1870,8 +1870,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4570,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperAccelMatrixY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1880,8 +1880,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4576,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperAccelMatrixZ",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1900,8 +1900,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4605,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperAlternateGyroConvention",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1960,8 +1960,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4754,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperStickGyroEnabled",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1970,8 +1970,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4760,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationGyroActivationMode",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1980,8 +1980,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4768,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationGyroActivationButton",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -1990,8 +1990,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4803,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickSensitivityV2",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2010,8 +2010,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4841,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroAntiDeadzone",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2020,8 +2020,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4853,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroAntiDeadzoneThreshold",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2030,8 +2030,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4866,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroSmoothing",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2040,8 +2040,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4879,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroVerticalRatio",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2050,8 +2050,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 4890,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroCurvePreset",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2060,8 +2060,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4907,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroTightenThreshold",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2070,8 +2070,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4918,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroTightenGain",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2080,8 +2080,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 4932,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroTouchDeactivateEnabled",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2090,8 +2090,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4944,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroTouchDeactivateThreshold",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2100,8 +2100,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 4955,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickGyroTouchDeactivateHoldoff",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2110,8 +2110,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5004,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickSelect",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2120,8 +2120,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5022,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickConversion",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2130,8 +2130,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5043,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickOrientationV2",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2140,8 +2140,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 5058,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickInvertX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2150,8 +2150,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 5069,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ControllerEmulationStickInvertY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2170,8 +2170,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5095,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperGuideButtonMode",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2180,8 +2180,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5112,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperDesktopButtonTarget",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2190,8 +2190,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5125,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperPageButtonTarget",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2200,8 +2200,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 5146,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperSwapRumbleMotors",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2210,8 +2210,8 @@
       "page": "System",
       "type": "ToggleSwitch",
       "source_line": 5168,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperMirrorLightbarToStick",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2220,8 +2220,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5183,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRumbleIntensity",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2230,8 +2230,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5292,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLSShape",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2240,8 +2240,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5302,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLSDX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2250,8 +2250,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5309,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLSDY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2260,8 +2260,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5316,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLSADX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2270,8 +2270,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5323,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLSADY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2280,8 +2280,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5327,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLSCurveX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2290,8 +2290,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5337,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLSCurveY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2300,8 +2300,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5363,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRSShape",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2310,8 +2310,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5373,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRSDX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2320,8 +2320,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5380,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRSDY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2330,8 +2330,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5387,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRSADX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2340,8 +2340,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5394,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRSADY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2350,8 +2350,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5398,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRSCurveX",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2360,8 +2360,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5408,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRSCurveY",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2370,8 +2370,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5437,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLTDZ",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2380,8 +2380,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5444,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLTRM",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2390,8 +2390,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5451,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLTAD",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2400,8 +2400,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5455,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperLTCurve",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2410,8 +2410,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5484,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRTDZ",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2420,8 +2420,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5491,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRTRM",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2430,8 +2430,8 @@
       "page": "System",
       "type": "Slider",
       "source_line": 5498,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRTAD",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -2440,8 +2440,8 @@
       "page": "System",
       "type": "ComboBox",
       "source_line": 5502,
-      "function": null,
-      "interaction": "pending_or_local_presentation",
+      "function": "ViiperRTCurve",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -3661,7 +3661,7 @@
       "type": "ToggleSwitch",
       "source_line": 7720,
       "function": "LegionPowerLight",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -4841,7 +4841,7 @@
       "type": "ToggleSwitch",
       "source_line": 8984,
       "function": "LegionHairTriggers",
-      "interaction": "pending_or_local_presentation",
+      "interaction": "adapter_connected",
       "pixel_parity_verified": false,
       "legion_go_physical_verified": false
     },
@@ -6132,7 +6132,7 @@
     {
       "name": "LegionPowerLight",
       "wire_id": 127,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6300,7 +6300,7 @@
     {
       "name": "LegionHairTriggers",
       "wire_id": 155,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6594,7 +6594,7 @@
     {
       "name": "AutoTDPResetML",
       "wire_id": 204,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6606,7 +6606,7 @@
     {
       "name": "AutoTDPControllerType",
       "wire_id": 206,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6822,7 +6822,7 @@
     {
       "name": "InstallHidHide",
       "wire_id": 242,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -6960,13 +6960,13 @@
     {
       "name": "ControllerEmulationEnabled",
       "wire_id": 265,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationGyroSource",
       "wire_id": 266,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7044,13 +7044,13 @@
     {
       "name": "ControllerEmulationStickInvertX",
       "wire_id": 279,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickInvertY",
       "wire_id": 280,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7068,7 +7068,7 @@
     {
       "name": "ControllerEmulationStickSelect",
       "wire_id": 283,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7116,13 +7116,13 @@
     {
       "name": "ControllerEmulationGyroActivationMode",
       "wire_id": 291,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationGyroActivationButton",
       "wire_id": 292,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7194,7 +7194,7 @@
     {
       "name": "ControllerEmulationStickSensitivityV2",
       "wire_id": 304,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7218,13 +7218,13 @@
     {
       "name": "ControllerEmulationStickOrientationV2",
       "wire_id": 308,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickConversion",
       "wire_id": 309,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7248,67 +7248,67 @@
     {
       "name": "Viiper_InstallUsbip",
       "wire_id": 313,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_DeviceType",
       "wire_id": 314,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_InputSource",
       "wire_id": 315,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_GyroSource",
       "wire_id": 316,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_SteamSubDevice",
       "wire_id": 317,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_SonySubDevice",
       "wire_id": 318,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_NintendoSubDevice",
       "wire_id": 319,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_GuideButtonMode",
       "wire_id": 320,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_SwapRumbleMotors",
       "wire_id": 321,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_RumbleIntensity",
       "wire_id": 322,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_MirrorLightbarToStick",
       "wire_id": 323,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7332,25 +7332,25 @@
     {
       "name": "Viiper_StickGyroEnabled",
       "wire_id": 327,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_JoyconGyroPerHalf",
       "wire_id": 328,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_AlternateGyroConvention",
       "wire_id": 329,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_StickTriggerConfig",
       "wire_id": 330,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7374,13 +7374,13 @@
     {
       "name": "ControllerEmulationStickGyroAntiDeadzone",
       "wire_id": 334,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickGyroAntiDeadzoneThreshold",
       "wire_id": 335,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7392,43 +7392,43 @@
     {
       "name": "ControllerEmulationStickGyroVerticalRatio",
       "wire_id": 337,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickGyroCurvePreset",
       "wire_id": 338,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickGyroTightenThreshold",
       "wire_id": 339,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickGyroTightenGain",
       "wire_id": 340,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickGyroTouchDeactivateEnabled",
       "wire_id": 341,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickGyroTouchDeactivateThreshold",
       "wire_id": 342,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "ControllerEmulationStickGyroTouchDeactivateHoldoff",
       "wire_id": 343,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7440,7 +7440,7 @@
     {
       "name": "ControllerEmulationStickGyroSmoothing",
       "wire_id": 345,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7464,7 +7464,7 @@
     {
       "name": "CalibrateGyroBias",
       "wire_id": 349,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7506,13 +7506,13 @@
     {
       "name": "Viiper_DesktopButtonTarget",
       "wire_id": 356,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_PageButtonTarget",
       "wire_id": 357,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
@@ -7608,13 +7608,13 @@
     {
       "name": "Viiper_GyroTuning",
       "wire_id": 373,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     },
     {
       "name": "Viiper_AccelTuning",
       "wire_id": 374,
-      "adapter": "pending",
+      "adapter": "ported",
       "legion_go_physical_verified": false
     }
   ]

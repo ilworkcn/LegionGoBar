@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, Signal, QSignalBlocker, QSize
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QIcon
 from PySide6.QtWidgets import (QWidget, QLabel, QFrame, QGridLayout, QVBoxLayout, QHBoxLayout,
                                QPushButton, QCheckBox, QComboBox, QSlider, QLineEdit, QSpinBox,
-                               QDoubleSpinBox, QScrollArea, QColorDialog, QAbstractButton, QSizePolicy)
+                               QDoubleSpinBox, QScrollArea, QColorDialog, QAbstractButton, QSizePolicy, QProgressBar)
 
 ALIASES = {"OSDCustomizeLevelComboBox": "OSDCustomizeLevel", "OSDColumnsComboBox": "OSDColumns",
            "OSDTextSizeComboBox": "OSDTextSize", "OSDTextColorPicker": "OSDTextColor", "OSDLabelColorPicker": "OSDLabelColor",
@@ -27,7 +27,24 @@ ALIASES = {"OSDCustomizeLevelComboBox": "OSDCustomizeLevel", "OSDColumnsComboBox
            "AMDRadeonChillToggle": "AMDRadeonChillEnabled", "AMDImageSharpeningToggle": "AMDImageSharpeningEnabled",
            "AMDImageSharpeningSlider": "AMDImageSharpeningSharpness", "LegionTouchpadVibrationComboBox": "LegionTouchpadVibration",
            "PerformanceOverlayComboBox": "OSD", "PerformanceOverlaySlider": "OSD"}
+ALIASES["AutoTDPSyncFPSLimitCheckBox"]="AutoTDPSyncFPSLimit"
+ALIASES["OSDTextColorDynamicCheckBox"]="OSDTextColorDynamic"
+ALIASES["OSDLabelColorDefaultCheckBox"]="OSDLabelColorDefault"
+ALIASES["FrametimeGraphPinnedToggle"]="FrametimeGraphPinned"
 ALIASES.update({"LosslessScalingResizeBeforeToggle": "LosslessScalingResizeBeforeScaling"})
+ALIASES.update({"Viiper"+name+suffix:"Viiper"+name for name,suffix in (
+    ("GuideButtonMode","ComboBox"),("MirrorLightbarToStick","Toggle"),("JoyconGyroPerHalf","Toggle"),("DesktopButtonTarget","ComboBox"),("PageButtonTarget","ComboBox"),("DeviceType","ComboBox"),("InputSource","ComboBox"),("GyroSource","ComboBox"),("SonySubDevice","ComboBox"),("NintendoSubDevice","ComboBox"),("SteamSubDevice","ComboBox"),
+    ("SwapRumbleMotors","Toggle"),("RumbleIntensity","Slider"),("AlternateGyroConvention","Toggle"))})
+ALIASES["ControllerEmulationEnabledToggle"]="ControllerEmulationEnabled"
+from ..native.viiper_tuning import FIELDS as TUNING_FIELDS
+ALIASES.update({key+("ComboBox" if part=="Matrix" else "Toggle"):key for key,(_,part,_) in TUNING_FIELDS.items()})
+from ..native.stick_shaping import FIELDS as SHAPING_FIELDS
+ALIASES.update({key+("ComboBox" if key.endswith(("Shape","Curve","CurveX","CurveY")) else "Slider"):key for key in SHAPING_FIELDS})
+from ..native.stick_gyro import UI as GYRO_UI
+ALIASES['ViiperStickGyroEnabledToggle']='ViiperStickGyroEnabled'
+for name,key in GYRO_UI.items():
+    suffix='Toggle' if name in ('InvertX','InvertY','TouchDeactivate') else 'ComboBox' if name in ('ActivationMode','ActivationButton','Orientation','Conversion','Select','CurvePreset') else 'Slider'
+    ALIASES['ViiperStickGyro'+name+suffix]=key
 STRING_COMBOS = {"LosslessScaling" + name for name in ("ScalingType", "Anime4KSize", "ScaleMode", "AspectRatio", "FrameGenType", "LSFG3Mode", "LSFG2Mode", "SyncMode", "CaptureApi", "LS1Type")}
 
 
@@ -189,7 +206,10 @@ class Renderer:
             widget = self.i18n.bind(QPushButton(parent=parent), attrs.get("Content", ""))
             widget.setCheckable(True)
             widget.setChecked(attrs.get("IsChecked") == "True")
-            self.bind(widget,node,widget.toggled,widget.isChecked)
+            if (attrs.get("Name", "").endswith("ExpandButton") or attrs.get("Name")=="ViiperStickGyroAdvancedToggle"):
+                widget.setText("⌄")
+                widget.toggled.connect(lambda checked,n=attrs["Name"]: self.expand(n))
+            else:self.bind(widget,node,widget.toggled,widget.isChecked)
         elif kind == "ToggleSwitch":
             widget = Toggle(parent)
             widget.setChecked(attrs.get("IsOn") == "True")
@@ -236,7 +256,9 @@ class Renderer:
                         value = int(value)
                     except (ValueError, TypeError):
                         pass
-                    widget.addItem(a.get("Content", child.get("text") or str(value)), value)
+                    content=a.get("Content", child.get("text") or str(value))
+                    if attrs.get("Name")=="ViiperGuideButtonModeComboBox" and value=="GameBar":content="Open LegionGoBar"
+                    widget.addItem(content, value)
             mapping = re.fullmatch(r"(LegionButton(?:Y1|Y2|Y3|M1|M2|M3|Desktop|Page))(Type|Mouse|Key)?ComboBox", attrs.get("Name", ""))
             if mapping:
                 key, part = mapping[1], mapping[2] or "gamepad"
@@ -500,7 +522,14 @@ class Renderer:
                 widget.setVisible(widget.isHidden())
 
     def expand(self, name):
+        if name=="ViiperStickGyroAdvancedToggle":name="ViiperStickGyroAdvancedExpandButton"
         mapping = {"ColorSettingsExpandButton": "ColorSettingsContent", "LegionColorExpandButton": "LegionColorPicker"}
+        if name == "ControllerEmulationExpandButton":
+            self.toggle_named(["ViiperEmulationContent"])
+            return
+        if name.startswith("Viiper"):
+            self.toggle_named([name.replace("ExpandButton","Content")])
+            return
         target = mapping.get(name, name.replace("ExpandButton", "Picker"))
         self.toggle_named([target])
 
@@ -561,6 +590,10 @@ class Renderer:
 
     def update(self, snapshot):
         caps, values = snapshot["capabilities"], snapshot["values"]
+        status = self.named.get("LosslessScalingStatusLabel")
+        if status:
+            self.i18n.bind(status, values.get("LosslessScalingStatus", "Detecting device…"))
+            status.setToolTip(values.get("LosslessScalingError", ""))
         self.osd_values = values
         self.update_osd_items(snapshot)
         for widget, key, node in self.bound:
@@ -570,6 +603,15 @@ class Renderer:
             widget.setEnabled(supported)
             self.i18n.bind(widget, "" if supported else "Unavailable on this device", "setToolTip")
             if key not in values:
+                # 没有读回值时清除原型占位状态，避免误显示为已应用。
+                with QSignalBlocker(widget):
+                    if isinstance(widget, QComboBox):
+                        self.i18n.bind(widget, "Unavailable", "setPlaceholderText")
+                        widget.setCurrentIndex(-1)
+                    elif isinstance(widget, QLineEdit):
+                        widget.clear()
+                    elif isinstance(widget, QAbstractButton) and widget.isCheckable():
+                        widget.setChecked(False)
                 continue
             value = values[key]
             with QSignalBlocker(widget):
@@ -585,10 +627,12 @@ class Renderer:
                 elif isinstance(widget, QComboBox):
                     if key in ("Resolution", "RefreshRate"):
                         options = values.get("Resolutions" if key == "Resolution" else "RefreshRates", [])
-                        widget.clear()
-                        for option in options:
-                            widget.addItem(str(option), option)
-                        self.i18n.combo(widget, [str(option) for option in options])
+                        # 维护回调频繁刷新，选项未变时保留下拉列表及键盘焦点。
+                        if [widget.itemData(i) for i in range(widget.count())] != list(options):
+                            widget.clear()
+                            for option in options:
+                                widget.addItem(str(option), option)
+                            self.i18n.combo(widget, [str(option) for option in options])
                     widget.setCurrentIndex(widget.findData(value))
                 elif isinstance(widget, QLineEdit):
                     widget.setText(str(value))
@@ -622,7 +666,37 @@ class Renderer:
             label = self.named.get(name)
             if label and key in values:self.i18n.bind(label,"{value}",value=f"{values[key]}{suffix}")
         label = self.named.get("AutoTDPMLStatusText")
-        if label:self.i18n.bind(label,values.get("AutoTDPMLStatus","PID controller; learning modes unavailable"))
+        if label:
+            self.i18n.bind(label,"Updates: {updates} | Avg: {average:.1f} | Exploration: {exploration}%",
+                updates=values.get("AutoTDPMLUpdates",0),average=values.get("AutoTDPMLAverageReward",0),exploration=values.get("AutoTDPMLExploration",30))
+        if label and values.get("AutoTDPLearningLoadError"):
+            self.i18n.bind(label,"Learning file could not be loaded; original data preserved")
+        panel = self.named.get("AutoTDPMLInfoPanel")
+        if panel:panel.setVisible(values.get("AutoTDPControllerType",0)>0)
+        learned = values.get("AutoTDPLearnedGameData",{})
+        record = learned.get("Record",{})
+        summary = self.named.get("AutoTDPLearnedSummaryText")
+        if summary:
+            if record:
+                self.i18n.bind(summary,"{power} W at {fps} FPS · Confidence {confidence}% · {count} observations",
+                    power=record["learnedTDP"],fps=record["targetFPS"],confidence=round(record["confidence"]*100),count=record["stableCount"])
+            else:self.i18n.bind(summary,"No learned data yet")
+        panel = self.named.get("AutoTDPLearnedHeatmapPanel")
+        if panel and panel.property("heatmap")!=learned.get("Heatmap",{}):
+            heatmap=learned.get("Heatmap",{})
+            panel.setProperty("heatmap",heatmap)
+            layout=panel.layout()
+            while layout.count():
+                item=layout.takeAt(0)
+                if item.widget():item.widget().deleteLater()
+            maximum=max(heatmap.values(),default=1)
+            for power,count in sorted(heatmap.items(),key=lambda item:int(item[0])):
+                bar=QProgressBar(panel)
+                bar.setRange(0,maximum)
+                bar.setValue(count)
+                bar.setFormat(f"{power} W · {count}")
+                bar.setMinimumHeight(24)
+                layout.addWidget(bar)
         for name in ("AutoTDPMinSlider", "AutoTDPMaxSlider"):
             control = self.named.get(name)
             if control:control.setMaximum(35)
@@ -639,6 +713,50 @@ class Renderer:
                               ("ShowLosslessScalingWindowButton",values.get("LosslessScalingRunning"))):
             button = self.named.get(name)
             if button:button.setVisible(bool(visible))
+        for dependency,installed in values.get("Dependencies",{}).items():
+            label=self.named.get("SetupStatus"+dependency)
+            if label:
+                self.i18n.bind(label,"Installed" if installed else "Not Installed")
+                label.setStyleSheet("color: "+("#8CDEB0" if installed else "#C9CDD3")+"; background: transparent;")
+        label=self.named.get("SetupStatusPawnIO")
+        if label:self.i18n.bind(label,"Not required for Legion Go WMI controls")
+        card=self.named.get("ControllerEmulationCard")
+        if card:card.setVisible(True)
+        legacy=self.named.get("ControllerEmulationContent")
+        if legacy:legacy.hide()
+        for family in ("Sony","Nintendo","Steam"):
+            panel=self.named.get("Viiper"+family+"SubDevicePanel")
+            if panel:panel.setVisible(values.get("ViiperDeviceType")=={"Sony":"sony","Nintendo":"nintendo","Steam":"steam-generic"}[family])
+        status=self.named.get("ControllerEmulationStatusText")
+        if status:self.i18n.bind(status,values.get("ViiperError") or ("Running" if values.get("ControllerEmulationEnabled") else "Ready" if values.get("ViiperAvailable") else "Install USBip to enable controller emulation"))
+        panel=self.named.get("ViiperJoyconGyroPerHalfPanel")
+        if panel:panel.setVisible(values.get("ViiperDeviceType")=="nintendo" and values.get("ViiperNintendoSubDevice")=="joycon-pair")
+        panel=self.named.get("ViiperStickGyroSection")
+        if panel:panel.setVisible(values.get("ViiperDeviceType")!="sony")
+        for name,key in GYRO_UI.items():
+            label=self.named.get('ViiperStickGyro'+name+'ValueText')
+            if label and key in values:
+                value=values[key]
+                formatted=f'{value/100:.2f}×' if name in ('Sensitivity','TightenGain') else f'{value/10:.1f}°/s' if name=='AntiDeadzoneThreshold' else f'{value}°/s' if name=='TightenThreshold' else f'{value} ms' if name=='TouchHoldoff' else f'{value}%'
+                label.setText(formatted)
+        calibration=values.get('GyroCalibration',{})
+        phase=calibration.get('phase')
+        text={'preparing':'Place the device still: {seconds}s','capturing':'Calibrating: {seconds}s','done':'Calibration saved','reset':'Automatic calibration restored','low_confidence':'Calibration did not converge; keep the device still and retry','unavailable':'Legion Go motion sensor is unavailable'}.get(phase,'')
+        for name in ('GyroBiasStatusText','ViiperStickGyroCalibrateStatusText'):
+            label=self.named.get(name)
+            if label and text:self.i18n.bind(label,text,seconds=calibration.get('remaining',0))
+        live=values.get('ViiperStickGyroLive')
+        label=self.named.get('ViiperStickGyroLiveReadingsText')
+        if label:label.setText(f'X {live[0]:.1f}°/s · Y {live[1]:.1f}°/s · {live[2]}, {live[3]}' if live else '—')
+        label=self.named.get("ViiperGyroTuningSourceLabel")
+        if label:self.i18n.bind(label,"Editing tuning for: {sensor}",sensor=self.i18n.text({"None":"Left controller","Left":"Left controller","Right":"Right controller","Mixed":"Mixed (L+R averaged)","Handheld":"Handheld (device IMU)"}.get(values.get("ViiperGyroSource"),"Left controller")))
+        from ..native.stick_shaping import FIELDS
+        for key in FIELDS:
+            label=self.named.get(key+"Value")
+            if isinstance(label,QLabel) and isinstance(values.get(key),(int,float)):
+                label.setText(f"{values[key]:g}%")
+        label=self.named.get("ViiperRumbleIntensityValue")
+        if label:self.i18n.bind(label,"{value}",value=str(values.get("ViiperRumbleIntensity",100))+"%")
         # 原界面中由开关驱动的可见性绑定。
         for widget, binding in self.pending_bindings:
             match = re.search(r"ElementName=(\w+), Path=IsOn", binding)

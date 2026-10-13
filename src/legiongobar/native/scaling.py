@@ -17,6 +17,12 @@ FIELDS = {name: name for name in ("ScalingType", "Sharpness", "FSROptimize", "An
           "ScaleFactor", "AspectRatio", "LSFG3Multiplier", "LSFG3Target", "LSFG2Mode", "AutoScale", "AutoScaleDelay",
           "SyncMode", "CaptureApi", "DrawFps", "HdrSupport", "GsyncSupport", "ResizeBeforeScaling", "LS1Type", "MaxFrameLatency")}
 FIELDS.update({"FrameGenType": "FrameGeneration", "LSFG3Mode": "LSFG3Mode1", "FlowScale": "LSFGFlowScale", "Size": "LSFGSize"})
+# 新版与旧版配置使用不同字段名，保存时沿用实际读取的字段。
+FIELD_ALIASES = {"ScaleMode": ("ScalingMode", "ScaleMode"),
+    "AspectRatio": ("ScalingFitMode", "AspectRatio"),
+    "Anime4KSize": ("Anime4kType", "Anime4KSize"), "Anime4KVRS": ("VRS", "Anime4KVRS")}
+ANIME_SIZES = {"S": "Small", "M": "Medium", "L": "Large", "XL": "VeryLarge", "UL": "UltraLarge"}
+
 BOOL = {"FSROptimize", "Anime4KVRS", "AutoScale", "DrawFps", "HdrSupport", "GsyncSupport", "ResizeBeforeScaling"}
 NUMERIC = {"Sharpness": (0, 100), "ScaleFactor": (1, 5), "LSFG3Multiplier": (2, 4), "LSFG3Target": (30, 1000),
            "FlowScale": (25, 100), "AutoScaleDelay": (0, 60000), "MaxFrameLatency": (0, 4)}
@@ -131,6 +137,8 @@ class Scaling:
         self.target_path = None
         self.target_hwnd = None
         self.executable = None
+        self.field_names = {}
+        self.default_profile_name = "Default"
 
     def load(self):
         data = self.path.read_bytes()
@@ -142,8 +150,23 @@ class Scaling:
             raise ValueError("Invalid Lossless Scaling settings XML")
         return ET.fromstring(data)
 
+    def default_profile(self, root):
+        # 默认配置不关联游戏路径，名称可能是“默认”或其他本地化文字。
+        profiles = list(root.iter("Profile"))
+        defaults = [p for p in profiles if not p.findtext("Path", "").strip()]
+        if len(defaults) == 1:
+            return defaults[0]
+        named = [p for p in defaults if p.findtext("Title") == "Default"]
+        if len(named) == 1:
+            return named[0]
+        raise ValueError("Lossless Scaling default profile is missing or ambiguous")
+
     def profile(self, root):
         matches = [p for p in root.iter("Profile") if p.findtext("Title") == self.profile_name]
+        if not matches and self.profile_name in ("Default", self.default_profile_name):
+            profile = self.default_profile(root)
+            self.profile_name = self.default_profile_name = profile.findtext("Title")
+            return profile
         if len(matches) != 1:
             raise ValueError(f"Expected one Lossless Scaling profile named {self.profile_name!r}")
         return matches[0]
@@ -155,14 +178,34 @@ class Scaling:
             self.enabled = False
         values = {"LosslessScalingCurrentProfile": self.profile_name, "LosslessScalingEnabled": self.enabled,
                   "LosslessScalingRunning": bool(processes), "LosslessScalingInstalled": bool(self.executable)}
-        capabilities = {key: bool(self.executable) for key in ("LosslessScalingLaunch", "LosslessScalingBringToForeground", "LosslessScalingEnabled")}
+        capabilities = {"LosslessScaling" + name: False for name in FIELDS}
+        capabilities.update({key: False for key in ACTION_KEYS})
+        capabilities.update({key: bool(self.executable) for key in ("LosslessScalingLaunch", "LosslessScalingBringToForeground", "LosslessScalingEnabled")})
+        values["LosslessScalingStatus"] = "Start Lossless Scaling once to create its settings"
         if not self.path.is_file():
             return capabilities, values
-        profile = self.profile(self.load())
+        try:
+            root = self.load()
+            self.default_profile_name = self.default_profile(root).findtext("Title")
+            profile = self.profile(root)
+        except (ValueError, ET.ParseError, OSError) as exc:
+            values["LosslessScalingStatus"] = "Lossless Scaling settings could not be read"
+            values["LosslessScalingError"] = str(exc)
+            return capabilities, values
+        values["LosslessScalingCurrentProfile"] = self.profile_name
+        values["LosslessScalingError"] = ""
+        values["LosslessScalingStatus"] = "Lossless Scaling connected" if self.executable else "Lossless Scaling executable was not found"
+        self.field_names.clear()
         for name, field in FIELDS.items():
+            field = next((alias for alias in FIELD_ALIASES.get(name, (field,)) if profile.find(alias) is not None), field)
+            self.field_names[name] = field
             text = profile.findtext(field)
             if text is None:
                 continue
+            if name == "Anime4KSize" and field == "Anime4kType":
+                text = ANIME_SIZES.get(text, text)
+            if name == "AspectRatio" and text == "AspectRatio":
+                text = "Aspect Ratio"
             if name in BOOL:
                 value = text.casefold() == "true"
             elif name in NUMERIC:
@@ -196,7 +239,11 @@ class Scaling:
         root = ET.fromstring(data)
         profile = self.profile(root)
         for name, value in self.pending.items():
-            field = FIELDS[name]
+            field = self.field_names.get(name, FIELDS[name])
+            if field == "Anime4kType":
+                value = {v:k for k,v in ANIME_SIZES.items()}.get(value, value)
+            if field == "ScalingFitMode" and value == "Aspect Ratio":
+                value = "AspectRatio"
             element = profile.find(field)
             if element is None:
                 element = ET.SubElement(profile, field)
@@ -230,7 +277,7 @@ class Scaling:
         root = ET.fromstring(self.path.read_bytes())
         matches = [profile for profile in root.iter("Profile")
                    if profile.findtext("Path") and ntpath.normcase(ntpath.normpath(profile.findtext("Path"))) == ntpath.normcase(ntpath.normpath(path))]
-        name = matches[0].findtext("Title") if len(matches) == 1 else "Default"
+        name = matches[0].findtext("Title") if len(matches) == 1 else self.default_profile(root).findtext("Title")
         if name == self.profile_name:
             return False
         self.drafts[self.profile_name] = (dict(self.pending),self.source_hash)
@@ -252,7 +299,7 @@ class Scaling:
             raise RuntimeError("Lossless Scaling settings changed externally; reload before applying")
         root = ET.fromstring(data)
         profiles = root.find(".//GameProfiles")
-        default = next((p for p in root.iter("Profile") if p.findtext("Title") == "Default"), None)
+        default = self.default_profile(root)
         if profiles is None or default is None:
             raise ValueError("Lossless Scaling default profile is missing")
         for profile in root.iter("Profile"):
